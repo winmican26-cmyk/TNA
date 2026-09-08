@@ -1,0 +1,8 @@
+{
+  "agentId": "deployment-agent-17",
+  "action": "production.deploy",
+  "tool": "deploy.execute",
+  "resource": "prod.deploy.release",
+  "destination": "deploy.internal.company",
+  "estimatedCostUsd": 0.12
+}

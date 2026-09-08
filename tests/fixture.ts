@@ -1,0 +1,30 @@
+import type { Envelope } from '../packages/authority-envelope/src/index.js';
+import type { AuthorizationRequest } from '../packages/shared-schema/src/index.js';
+export const NOW = Date.parse('2026-09-08T12:00:00Z');
+export function envelope(): Envelope {
+  return {
+    version: '1.0',
+    agent: { id: 'deployment-agent-17', name: 'Deployment Agent', role: 'deployment', owner: 'platform-team', environment: 'production', expires_at: '2026-09-09T01:00:00Z' },
+    objective: { task_id: 'deploy-api-2026-09-08', goal: 'Deploy approved API release to production', allowed_outcomes: ['deploy approved release', 'run post-deploy health checks'], forbidden_outcomes: ['modify application source', 'change infrastructure topology', 'rotate unrelated secrets'] },
+    resources: { repositories: { read: ['org/api'], write: [] }, files: { read: ['/workspace/build/**'], write: ['/workspace/logs/**'] }, databases: { read: ['prod.health'], write: [] }, infrastructure: { read: ['prod.cluster.status'], write: ['prod.deploy.release'] } },
+    tools: { allow: ['github.read_release', 'ci.read_build', 'deploy.execute', 'healthcheck.run', 'log.write', 'agent.send', 'secret.read'], deny: ['shell.unrestricted', 'secret.create', 'iam.modify'] },
+    network: { allow: ['api.github.com', 'deploy.internal.company', 'health.internal.company'], deny: ['*'] },
+    secrets: { allow: [{ name: 'prod_deploy_token', mode: 'ephemeral', ttl_seconds: 600 }], deny: ['*'] },
+    agents: { communicate_with: ['security-verifier'], communication_mode: 'authenticated', shared_memory: false, deny_unknown_agents: true },
+    limits: { max_runtime_seconds: 600, max_tool_calls: 40, max_external_requests: 20, max_cost_usd: 3, max_retries_per_action: 2 },
+    approvals: { required_for: [{ action: 'production.deploy', approver_role: 'human-release-manager' }, { action: 'secret.access', approver_role: 'security' }] },
+    risk: { level: 'high', blast_radius: 'production-service', rollback_required: true },
+    evidence: { capture: ['agent_identity', 'policy_hash', 'tool_calls', 'network_destinations', 'resources_read', 'resources_modified', 'secrets_accessed', 'approvals', 'verifier_verdict', 'cost', 'timestamps'], retention_days: 2555 },
+    violation_policy: { unknown_tool: 'block', undeclared_resource: 'block', unauthorized_agent_contact: 'terminate', network_violation: 'terminate', secret_violation: 'terminate_and_rotate', cost_limit_exceeded: 'pause_and_escalate', runtime_limit_exceeded: 'terminate' },
+    action_bindings: [
+      { action: 'production.deploy', outcome: 'deploy approved release', tool: 'deploy.execute', resource_kind: 'infrastructure', operation: 'write', destination_required: true },
+      { action: 'health.check', outcome: 'run post-deploy health checks', tool: 'healthcheck.run', resource_kind: 'databases', operation: 'read', destination_required: true },
+      { action: 'log.write', outcome: 'deploy approved release', tool: 'log.write', resource_kind: 'files', operation: 'write', destination_required: false },
+      { action: 'agent.contact', outcome: 'deploy approved release', tool: 'agent.send', resource_kind: 'agents', operation: 'communicate', destination_required: false },
+      { action: 'secret.access', outcome: 'deploy approved release', tool: 'secret.read', resource_kind: 'secrets', operation: 'access', destination_required: false },
+    ],
+  };
+}
+export function request(): AuthorizationRequest {
+  return { agentId: 'deployment-agent-17', action: 'production.deploy', tool: 'deploy.execute', resource: 'prod.deploy.release', destination: 'deploy.internal.company', estimatedCostUsd: 0.12 };
+}
