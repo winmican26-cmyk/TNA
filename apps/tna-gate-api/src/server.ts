@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { ZodError } from 'zod';
 import { equalToken, type Principal } from '../../../packages/agent-identity/src/index.js';
+import { BrokerError, type ExecutionBroker } from '../../../packages/execution-broker/src/index.js';
 import { Gate, HttpError } from './gate.js';
 
 export type Credentials = { adminToken: string; approvers: { token: string; role: string }[] };
@@ -26,7 +27,11 @@ function send(res: ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
   res.end(JSON.stringify(data));
 }
-export function createGateServer(gate: Gate, credentials: Credentials) {
+function decisionIdInput(input: unknown): string {
+  if (input === null || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).length !== 1 || !('decisionId' in input) || typeof input.decisionId !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(input.decisionId)) throw new HttpError(400, 'Schema validation failed');
+  return input.decisionId;
+}
+export function createGateServer(gate: Gate, credentials: Credentials, broker?: ExecutionBroker) {
   validateCredentials(credentials);
   const server = createServer({ maxHeaderSize: 8192, requestTimeout: 15000, headersTimeout: 10000 }, (req, res) => {
     void (async () => {
@@ -51,6 +56,14 @@ export function createGateServer(gate: Gate, credentials: Credentials) {
           if (path === '/v1/authorize') return send(res, 200, gate.authorize(principal, input));
           if (path === '/v1/approvals') return send(res, 201, gate.approve(principal, input));
           if (path === '/v1/revoke') return send(res, 200, gate.revoke(principal, input));
+          if (path === '/v1/capabilities') {
+            if (!broker) throw new HttpError(503, 'Execution broker unavailable');
+            return send(res, 201, broker.issue(principal, decisionIdInput(input)));
+          }
+          if (path === '/v1/capabilities/redeem') {
+            if (!broker) throw new HttpError(503, 'Execution broker unavailable');
+            return send(res, 200, await broker.redeem(principal, input as never));
+          }
         }
         if (req.method === 'GET') {
           const envelope = /^\/v1\/envelopes\/([a-zA-Z0-9._-]+)$/.exec(path);
@@ -59,13 +72,23 @@ export function createGateServer(gate: Gate, credentials: Credentials) {
           if (decision?.[1]) return send(res, 200, gate.decision(principal, decision[1]));
           const activity = /^\/v1\/agents\/([a-zA-Z0-9._-]+)\/activity$/.exec(path);
           if (activity?.[1]) return send(res, 200, gate.activity(principal, activity[1]));
+          const execution = /^\/v1\/executions\/([a-zA-Z0-9._-]+)$/.exec(path);
+          if (execution?.[1]) {
+            if (!broker) throw new HttpError(503, 'Execution broker unavailable');
+            return send(res, 200, broker.execution(principal, execution[1]));
+          }
+          const executions = /^\/v1\/agents\/([a-zA-Z0-9._-]+)\/executions$/.exec(path);
+          if (executions?.[1]) {
+            if (!broker) throw new HttpError(503, 'Execution broker unavailable');
+            return send(res, 200, broker.executions(principal, executions[1]));
+          }
         }
         throw new HttpError(404, 'Route not found');
       } catch (error) {
-        const status = error instanceof HttpError ? error.status : error instanceof ZodError ? 400 : 503;
+        const status = error instanceof HttpError || error instanceof BrokerError ? error.status : error instanceof ZodError ? 400 : 503;
         try { gate.audit('http.rejected', { status, principal, method: req.method, path: req.url?.split('?')[0]?.slice(0, 512) }); }
         catch { return send(res, 503, { error: 'Evidence storage unavailable' }); }
-        send(res, status, { error: error instanceof HttpError ? error.message : error instanceof ZodError ? 'Schema validation failed' : 'Service unavailable' });
+        send(res, status, { error: error instanceof HttpError || error instanceof BrokerError ? error.message : error instanceof ZodError ? 'Schema validation failed' : 'Service unavailable' });
       }
     })();
   });

@@ -17,6 +17,16 @@ npm run demo
 
 `check` runs typecheck, lint, build, unit tests, REST integration tests, and authorization abuse tests. `demo` starts a temporary loopback HTTP server, registers an agent, issues an envelope, verifies HOLD → approval → ALLOW, blocks a forbidden shell, revokes the agent, and verifies another BLOCK. It uses memory-only state and random credentials and executes no tools.
 
+## Volume 2 status
+
+Vol 2 adds short-lived HMAC-SHA256 capabilities, a server-owned execution broker and demo registry, single-use redemption, execution evidence, and fail-closed secret brokerage. The local demo is simulated: it writes only a temporary artifact, performs no external action, and proves direct invocation is rejected, approval is required, replay is blocked, and revocation blocks a capability.
+
+```powershell
+npm run demo:v02
+```
+
+See [the capability model](docs/capability-model-v1.md), [execution broker](docs/execution-broker.md), [Vol 2 threat model](docs/v0.2-threat-model.md), and [Vol 2 verification](docs/v0.2-verification.md). Production isolation, network enforcement, real secrets, KMS/HSM key custody, and external-side-effect reconciliation remain unimplemented.
+
 Start the persistent API from the same PowerShell session:
 
 ```powershell

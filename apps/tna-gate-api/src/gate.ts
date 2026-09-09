@@ -7,6 +7,7 @@ import { approvalSchema, registrationSchema, requestSchema, revokeSchema, type A
 
 type Agent = { id: string; name: string; tokenHash: string; revoked: boolean };
 type Policy = { envelope: Envelope; hash: string; revision: string };
+type DecisionPolicy = { policyHash: string; policyRevision: string };
 type Approval = { id: string; agentId: string; policyHash: string; policyRevision: string; requestHash: string; role: string; expiresAt: string; used: boolean };
 export class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
 const newId = (prefix: string) => `${prefix}_${randomUUID()}`;
@@ -61,6 +62,12 @@ export class Gate {
     if (!policy) throw new HttpError(404, 'Envelope not found');
     return policy;
   }
+  isAgentRevoked(agentId: string): boolean { return this.store.get<Agent>('agent', agentId)?.revoked ?? true; }
+  isPolicyCurrent(decision: Decision): boolean {
+    const policy = this.store.get<Policy>('policy', decision.agentId);
+    const issued = this.store.get<DecisionPolicy>('decision.policy', decision.decisionId);
+    return !!policy && !!issued && Date.parse(policy.envelope.agent.expires_at) > this.now() && decision.policyHash === policy.hash && issued.policyHash === policy.hash && issued.policyRevision === policy.revision;
+  }
   approve(principal: Principal, input: unknown): unknown {
     if (principal.kind !== 'approver') throw new HttpError(403, 'Independent approver credential required');
     const data = approvalSchema.parse(input);
@@ -112,6 +119,7 @@ export class Gate {
         if (valid && approval) this.store.put('approval', approval.id, { ...approval, used: true });
       }
       this.store.put('decision', decision.decisionId, decision);
+      if (policy) this.store.put('decision.policy', decision.decisionId, { policyHash: policy.hash, policyRevision: policy.revision } satisfies DecisionPolicy);
       this.store.append({ type: 'authorization.decision', ...decision });
       return decision;
     });
