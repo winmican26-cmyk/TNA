@@ -27,6 +27,10 @@ npm run demo:v02
 
 See [the capability model](docs/capability-model-v1.md), [execution broker](docs/execution-broker.md), [Vol 2 threat model](docs/v0.2-threat-model.md), and [Vol 2 verification](docs/v0.2-verification.md). Production isolation, network enforcement, real secrets, KMS/HSM key custody, and external-side-effect reconciliation remain unimplemented.
 
+## Volume 3 status
+
+Vol 3 documents and demonstrates the local child-process runner, application-level Egress Guard, and strict canonical tool-input binding. Run `npm run demo:v03` for the harmless temporary-workspace demo. These controls do not claim OS sandboxing, kernel egress isolation, SSRF-proof behavior, or exactly-once external effects; see [the Vol 3 threat model](docs/v0.3-threat-model.md) and [verification](docs/v0.3-verification.md).
+
 Start the persistent API from the same PowerShell session:
 
 ```powershell

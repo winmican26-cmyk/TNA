@@ -8,7 +8,8 @@
     "check": "npm run typecheck && npm run lint && npm test",
     "start": "node dist/apps/tna-gate-api/src/main.js",
     "demo": "npm run build && node dist/scripts/demo.js",
-    "demo:v02": "npm run build && node dist/scripts/demo-v02.js"
+    "demo:v02": "npm run build && node dist/scripts/demo-v02.js",
+    "demo:v03": "npm run build && node dist/scripts/demo-v03.js"
   },
   "dependencies": {"zod": "4.1.5"},
   "devDependencies": {"typescript": "5.9.2", "@types/node": "24.3.1", "eslint": "9.35.0", "typescript-eslint": "8.42.0", "@eslint/js": "9.35.0"}

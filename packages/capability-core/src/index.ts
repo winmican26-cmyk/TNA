@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const VERSION = 1 as const;
 const DEFAULT_TTL_SECONDS = 30;
@@ -22,6 +22,7 @@ export interface CapabilityPayload {
   tool: string;
   resource: string;
   operation: string;
+  input_hash: string;
   destination: string | null;
   policy_hash: string;
   policy_issuance_id: string;
@@ -31,7 +32,8 @@ export interface CapabilityPayload {
   nonce: string;
 }
 
-export type CapabilityInput = Omit<CapabilityPayload, 'version' | 'issued_at' | 'expires_at' | 'single_use' | 'nonce'> & {
+export type CapabilityInput = Omit<CapabilityPayload, 'version' | 'issued_at' | 'expires_at' | 'single_use' | 'nonce' | 'input_hash'> & {
+  input_hash?: string;
   expires_at?: string;
 };
 
@@ -90,22 +92,24 @@ export class CapabilityCodec {
 
   issue(input: CapabilityInput): { token: string; payload: CapabilityPayload } {
     if (!this.validInput(input)) throw new CapabilityError('Invalid capability input');
+    const inputHash = input.input_hash ?? createHash('sha256').update('null').digest('hex');
     const issuedAt = this.clock();
     if (!Number.isFinite(issuedAt)) throw new CapabilityError('Invalid clock value');
     const issuedAtIso = new Date(issuedAt).toISOString();
     const maximumExpiry = issuedAt + this.ttlSeconds * 1000;
     const requestedExpiry = input.expires_at === undefined ? maximumExpiry : Date.parse(input.expires_at);
     if (!Number.isFinite(requestedExpiry) || requestedExpiry < issuedAt) throw new CapabilityError('Invalid capability expiry');
-    const payload: CapabilityPayload = {
+    const payload = {
       version: VERSION, capability_id: input.capability_id, execution_id: input.execution_id,
       agent_id: input.agent_id, decision_id: input.decision_id, action: input.action,
       tool: input.tool, resource: input.resource, operation: input.operation,
+      input_hash: inputHash,
       destination: input.destination, policy_hash: input.policy_hash,
       policy_issuance_id: input.policy_issuance_id, issued_at: issuedAtIso,
       expires_at: new Date(Math.min(requestedExpiry, maximumExpiry)).toISOString(),
       single_use: true, nonce: encode(randomBytes(16)),
     };
-    return { token: this.sign(payload), payload };
+    return { token: this.sign(payload as CapabilityPayload), payload: payload as CapabilityPayload };
   }
 
   verify(token: string): CapabilityPayload {
@@ -142,12 +146,13 @@ export class CapabilityCodec {
   }
 
   private validInput(input: CapabilityInput): boolean {
-    const keys = ['action', 'agent_id', 'capability_id', 'decision_id', 'destination', 'execution_id', 'operation', 'policy_hash', 'policy_issuance_id', 'resource', 'tool'];
-    if (input !== null && typeof input === 'object' && (Object.keys(input).some(key => !keys.includes(key) && key !== 'expires_at') || Object.keys(input).length > keys.length + 1)) return false;
+    const keys = ['action', 'agent_id', 'capability_id', 'decision_id', 'destination', 'execution_id', 'operation', 'policy_hash', 'policy_issuance_id', 'resource', 'tool', 'input_hash'];
+    if (input !== null && typeof input === 'object' && (Object.keys(input).some(key => !keys.includes(key) && key !== 'expires_at') || ![keys.length - 1, keys.length, keys.length + 1].includes(Object.keys(input).length))) return false;
     return input !== null && typeof input === 'object'
       && validText(input.capability_id) && validText(input.execution_id) && validText(input.agent_id)
       && validText(input.decision_id) && validText(input.action) && validText(input.tool)
       && validText(input.resource) && validText(input.operation)
+      && (input.input_hash === undefined || /^[a-f0-9]{64}$/.test(input.input_hash))
       && (input.destination === null || validText(input.destination))
       && validText(input.policy_hash) && validText(input.policy_issuance_id)
       && (input.expires_at === undefined || parseIso(input.expires_at));
@@ -156,12 +161,13 @@ export class CapabilityCodec {
   private validPayload(value: unknown): value is CapabilityPayload {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
     const payload = value as Record<string, unknown>;
-    const keys = ['version', 'capability_id', 'execution_id', 'agent_id', 'decision_id', 'action', 'tool', 'resource', 'operation', 'destination', 'policy_hash', 'policy_issuance_id', 'issued_at', 'expires_at', 'single_use', 'nonce'];
+    const keys = ['version', 'capability_id', 'execution_id', 'agent_id', 'decision_id', 'action', 'tool', 'resource', 'operation', 'input_hash', 'destination', 'policy_hash', 'policy_issuance_id', 'issued_at', 'expires_at', 'single_use', 'nonce'];
     return Object.keys(payload).length === keys.length && keys.every(key => key in payload)
       && payload.version === VERSION && payload.single_use === true
       && validText(payload.capability_id) && validText(payload.execution_id) && validText(payload.agent_id)
       && validText(payload.decision_id) && validText(payload.action) && validText(payload.tool)
       && validText(payload.resource) && validText(payload.operation)
+      && typeof payload.input_hash === 'string' && /^[a-f0-9]{64}$/.test(payload.input_hash)
       && (payload.destination === null || validText(payload.destination))
       && validText(payload.policy_hash) && validText(payload.policy_issuance_id)
       && parseIso(payload.issued_at) && parseIso(payload.expires_at) && validText(payload.nonce)

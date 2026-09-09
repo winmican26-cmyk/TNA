@@ -10,9 +10,15 @@ import { Store } from '../../packages/evidence-core/src/index.js';
 import { Gate } from '../../apps/tna-gate-api/src/gate.js';
 import { createGateServer, type Credentials } from '../../apps/tna-gate-api/src/server.js';
 import { envelope, request, NOW } from '../fixture.js';
+import { ToolInputRegistry, demoToolInputMetadata } from '../../packages/tool-inputs/src/index.js';
+import { ChildProcessIsolationRunner } from '../../packages/isolation-runner/src/index.js';
 
 const admin = 'a'.repeat(40), release = 'r'.repeat(40);
 const credentials: Credentials = { adminToken: admin, approvers: [{ token: release, role: 'human-release-manager' }] };
+const toolInputs = new ToolInputRegistry();
+toolInputs.register(demoToolInputMetadata);
+const demoInput = { release: 'prod.deploy.release', environment: 'demo-production' };
+const demoInputHash = toolInputs.parseAndHash('demo.deploy.execute', demoInput).input_hash;
 
 function demoEnvelope(expiresAt = '2026-09-10T01:00:00Z') {
   const value = envelope();
@@ -22,7 +28,7 @@ function demoEnvelope(expiresAt = '2026-09-10T01:00:00Z') {
   value.action_bindings[0]!.destination_required = false;
   return value;
 }
-function demoRequest() { return { agentId: request().agentId, action: 'production.deploy', tool: 'demo.deploy.execute', resource: 'prod.deploy.release', estimatedCostUsd: 0.12 }; }
+function demoRequest() { return { agentId: request().agentId, action: 'production.deploy', tool: 'demo.deploy.execute', resource: 'prod.deploy.release', estimatedCostUsd: 0.12, input: demoInput, input_hash: demoInputHash }; }
 
 async function setup(t: TestContext, withBroker = true, envelopeExpiresAt = '2026-09-10T01:00:00Z') {
   let clock = NOW;
@@ -34,6 +40,7 @@ async function setup(t: TestContext, withBroker = true, envelopeExpiresAt = '202
     isAgentRevoked: agentId => gate.isAgentRevoked(agentId),
     isPolicyCurrent: decision => gate.isPolicyCurrent(decision),
     isDecisionCurrent: decision => gate.isPolicyCurrent(decision),
+    isolationRunner: new ChildProcessIsolationRunner(),
   }) : undefined;
   const server = createGateServer(gate, credentials, broker);
   server.listen(0, '127.0.0.1');
@@ -75,7 +82,7 @@ test('Vol 1 authorization routes remain usable and Vol 2 workflow issues and red
   assert.equal(issued.status, 201);
   assert.equal(typeof issued.data.token, 'string');
   assert.equal((issued.data.payload as Record<string, unknown>).agent_id, 'deployment-agent-17');
-  const redeemed = await call('/v1/capabilities/redeem', agentToken, { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write' });
+  const redeemed = await call('/v1/capabilities/redeem', agentToken, { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write', input: demoInput, input_hash: demoInputHash });
   assert.equal(redeemed.status, 200, JSON.stringify(redeemed.data));
   assert.equal(redeemed.data.state, 'SUCCEEDED');
 });
@@ -85,10 +92,20 @@ test('capability issuance and redemption fail closed for invalid state and repla
   const { decisionId } = await allow();
   assert.equal((await call('/v1/capabilities', agentToken, { decisionId, extra: true })).status, 400);
   const issued = await call('/v1/capabilities', agentToken, { decisionId });
-  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: issued.data.token, tool: 'wrong', resource: 'prod.deploy.release', operation: 'write' })).status, 403);
-  const input = { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write' };
+  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: issued.data.token, tool: 'wrong', resource: 'prod.deploy.release', operation: 'write', input: demoInput, input_hash: demoInputHash })).status, 403);
+  const input = { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write', input: demoInput, input_hash: demoInputHash };
   assert.equal((await call('/v1/capabilities/redeem', agentToken, input)).status, 200);
   assert.equal((await call('/v1/capabilities/redeem', agentToken, input)).status, 409);
+});
+
+test('API rejects tool input substitution and missing or mismatched hashes', async t => {
+  const { call, agentToken, allow } = await setup(t);
+  const { decisionId } = await allow();
+  const issued = await call('/v1/capabilities', agentToken, { decisionId });
+  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write', input_hash: demoInputHash })).status, 400);
+  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write', input: { ...demoInput, command: 'sh' }, input_hash: demoInputHash })).status, 403);
+  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'release-other', operation: 'write', input: demoInput, input_hash: demoInputHash })).status, 403);
+  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write', input: demoInput, input_hash: 'b'.repeat(64) })).status, 403);
 });
 
 test('expired envelopes block capability issuance and redemption', async t => {
@@ -104,7 +121,7 @@ test('expired envelopes block capability issuance and redemption', async t => {
   const issued = await call('/v1/capabilities', admin, { decisionId: redemptionDecision.decisionId });
   assert.equal(issued.status, 201);
   setTime(Date.parse(envelopeExpiresAt));
-  assert.equal((await call('/v1/capabilities/redeem', admin, { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write' })).status, 403);
+  assert.equal((await call('/v1/capabilities/redeem', admin, { token: issued.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write', input: demoInput, input_hash: demoInputHash })).status, 403);
 });
 
 test('revoked and stale-policy capabilities cannot redeem, and execution reads are isolated', async t => {
@@ -112,11 +129,11 @@ test('revoked and stale-policy capabilities cannot redeem, and execution reads a
   const stale = await allow();
   const staleCapability = await call('/v1/capabilities', agentToken, { decisionId: stale.decisionId });
   assert.equal((await call('/v1/envelopes', admin, demoEnvelope())).status, 201);
-  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: staleCapability.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write' })).status, 403);
+  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: staleCapability.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write', input: demoInput, input_hash: demoInputHash })).status, 403);
   const revoked = await allow();
   const revokedCapability = await call('/v1/capabilities', agentToken, { decisionId: revoked.decisionId });
   assert.equal((await call('/v1/revoke', admin, { agentId: request().agentId, reason: 'release complete' })).status, 200);
-  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: revokedCapability.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write' })).status, 403);
+  assert.equal((await call('/v1/capabilities/redeem', agentToken, { token: revokedCapability.data.token, tool: 'demo.deploy.execute', resource: 'prod.deploy.release', operation: 'write', input: demoInput, input_hash: demoInputHash })).status, 403);
   await call('/v1/agents/register', admin, { id: 'other-agent', name: 'Other Agent' });
   assert.equal((await call('/v1/agents/other-agent/executions', agentToken)).status, 403);
 });

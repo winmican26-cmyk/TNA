@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { Store } from '../../../packages/evidence-core/src/index.js';
 import { CapabilityCodec } from '../../../packages/capability-core/src/index.js';
 import { ExecutionBroker, createDemoRegistry } from '../../../packages/execution-broker/src/index.js';
+import { ChildProcessIsolationRunner } from '../../../packages/isolation-runner/src/index.js';
 import { Gate } from './gate.js';
 import { createGateServer } from './server.js';
 
@@ -23,6 +24,7 @@ const broker = capabilityKey.length >= 32 ? new ExecutionBroker(store, new Capab
   isAgentRevoked: agentId => gate.isAgentRevoked(agentId),
   isPolicyCurrent: decision => gate.isPolicyCurrent(decision),
   isDecisionCurrent: decision => gate.isPolicyCurrent(decision),
+  isolationRunner: new ChildProcessIsolationRunner(),
 }) : undefined;
 const server = createGateServer(gate, { adminToken, approvers: [
   { token: releaseToken, role: 'human-release-manager' }, { token: securityToken, role: 'security' },

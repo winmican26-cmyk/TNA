@@ -9,16 +9,23 @@ import { CapabilityCodec } from '../packages/capability-core/src/index.js';
 import { Store } from '../packages/evidence-core/src/index.js';
 import { Gate } from '../apps/tna-gate-api/src/gate.js';
 import { createGateServer } from '../apps/tna-gate-api/src/server.js';
+import { ChildProcessIsolationRunner } from '../packages/isolation-runner/src/index.js';
+import { ToolInputRegistry, demoToolInputMetadata } from '../packages/tool-inputs/src/index.js';
 
 const adminToken = randomBytes(32).toString('hex');
 const releaseToken = randomBytes(32).toString('hex');
 const artifactDirectory = mkdtempSync(resolve('data', 'demo-v02-'));
+const toolInputs = new ToolInputRegistry();
+toolInputs.register(demoToolInputMetadata);
+const demoInput = { release: 'prod.deploy.release', environment: 'demo-production' };
+const demoInputHash = toolInputs.parseAndHash('demo.deploy.execute', demoInput).input_hash;
 const store = new Store(':memory:');
 const gate = new Gate(store);
 const broker = new ExecutionBroker(store, new CapabilityCodec(randomBytes(32)), createDemoRegistry(artifactDirectory), {
   isAgentRevoked: agentId => gate.isAgentRevoked(agentId),
   isPolicyCurrent: decision => gate.isPolicyCurrent(decision),
   isDecisionCurrent: decision => gate.isPolicyCurrent(decision),
+  isolationRunner: new ChildProcessIsolationRunner(),
 });
 const server = createGateServer(gate, { adminToken, approvers: [{ token: releaseToken, role: 'human-release-manager' }] }, broker);
 server.listen(0, '127.0.0.1');
@@ -53,7 +60,7 @@ try {
   const agentToken = String(registered.data.token);
   expectStatus(await call('/v1/envelopes', adminToken, envelope), 201);
 
-  const request = { agentId: envelope.agent.id, action: 'production.deploy', tool: 'demo.deploy.execute', resource: 'prod.deploy.release', estimatedCostUsd: 0.12 };
+  const request = { agentId: envelope.agent.id, action: 'production.deploy', tool: 'demo.deploy.execute', resource: 'prod.deploy.release', estimatedCostUsd: 0.12, input: demoInput, input_hash: demoInputHash };
   const direct = await call('/v1/tools/demo.deploy.execute', agentToken, request);
   expectStatus(direct, 404);
   process.stdout.write('BLOCK direct invocation (HTTP 404 route rejected)\n');
@@ -74,12 +81,13 @@ try {
   expectStatus(issued, 201);
   assert.equal(typeof issued.data.token, 'string');
   process.stdout.write('CAPABILITY ISSUED\n');
-  const redeemInput = { token: issued.data.token, tool: 'demo.deploy.execute', resource: request.resource, operation: 'write' };
+  const redeemInput = { token: issued.data.token, tool: 'demo.deploy.execute', resource: request.resource, operation: 'write', input: demoInput, input_hash: demoInputHash };
   const succeeded = await call('/v1/capabilities/redeem', agentToken, redeemInput);
   expectStatus(succeeded, 200);
   assert.equal(succeeded.data.state, 'SUCCEEDED');
   process.stdout.write('EXECUTION SUCCEEDED\n');
-  const artifact = readFileSync(resolve(artifactDirectory, `${String((issued.data.payload as Record<string, unknown>).execution_id)}.json`), 'utf8');
+  const executionId = String((issued.data.payload as Record<string, unknown>).execution_id);
+  const artifact = readFileSync(resolve(artifactDirectory, executionId, `${executionId}.json`), 'utf8');
   assert(!artifact.includes('secret'));
 
   const replay = await call('/v1/capabilities/redeem', agentToken, redeemInput);

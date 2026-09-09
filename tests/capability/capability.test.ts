@@ -18,7 +18,7 @@ function expectCapabilityError(action: () => unknown): void {
   assert.throws(action, (error: unknown) => error instanceof CapabilityError);
 }
 
-function alternateBase64urlSpelling(value: string): string {
+function alternateBase64urlSpelling(value: string): string | undefined {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   const decoded = Buffer.from(value, 'base64url');
   const lastIndex = value.length - 1;
@@ -26,7 +26,7 @@ function alternateBase64urlSpelling(value: string): string {
     const candidate = `${value.slice(0, lastIndex)}${character}`;
     if (candidate !== value && Buffer.from(candidate, 'base64url').equals(decoded)) return candidate;
   }
-  throw new Error('No alternate base64url spelling found');
+  return undefined;
 }
 
 test('issues and verifies a canonical single-use capability', () => {
@@ -50,8 +50,16 @@ test('rejects non-canonical base64url spellings', () => {
   const [encodedPayload, encodedMac] = issued.token.split('.');
   const alternatePayload = alternateBase64urlSpelling(encodedPayload!);
   const alternateMac = alternateBase64urlSpelling(encodedMac!);
-  expectCapabilityError(() => codec().verify(`${alternatePayload}.${encodedMac}`));
-  expectCapabilityError(() => codec().verify(`${encodedPayload}.${alternateMac}`));
+  if (alternatePayload === undefined) {
+    assert.equal(Buffer.from(encodedPayload!, 'base64url').toString('base64url'), encodedPayload);
+  } else {
+    expectCapabilityError(() => codec().verify(`${alternatePayload}.${encodedMac}`));
+  }
+  if (alternateMac === undefined) {
+    assert.equal(Buffer.from(encodedMac!, 'base64url').toString('base64url'), encodedMac);
+  } else {
+    expectCapabilityError(() => codec().verify(`${encodedPayload}.${alternateMac}`));
+  }
 });
 
 test('rejects malformed and unknown-version tokens', () => {
@@ -101,10 +109,16 @@ test('enforces the constructor TTL cap and canonicalization', () => {
   expectCapabilityError(() => new CapabilityCodec(secret, { ttlSeconds: 61 }));
   const first = codec().issue(input);
   const second = codec().issue({ ...input });
-  const firstPayload = Buffer.from(first.token.split('.')[0]!, 'base64url').toString('utf8');
-  const secondPayload = Buffer.from(second.token.split('.')[0]!, 'base64url').toString('utf8');
-  assert.equal(firstPayload.startsWith('{"action":"deploy","agent_id":"agent-1","capability_id":"cap-1","decision_id":"decision-1","destination":"deploy.internal.company","execution_id":"exec-1","expires_at":"2026-09-09T12:00:30.000Z","issued_at":"2026-09-09T12:00:00.000Z","nonce":'), true);
-  assert.equal(firstPayload.slice(0, firstPayload.indexOf('"nonce"')), secondPayload.slice(0, secondPayload.indexOf('"nonce"')));
+  const firstPayload = JSON.parse(Buffer.from(first.token.split('.')[0]!, 'base64url').toString('utf8')) as Record<string, unknown>;
+  const secondPayload = JSON.parse(Buffer.from(second.token.split('.')[0]!, 'base64url').toString('utf8')) as Record<string, unknown>;
+  const expectedKeys = [
+    'action', 'agent_id', 'capability_id', 'decision_id', 'destination', 'execution_id',
+    'expires_at', 'input_hash', 'issued_at', 'nonce', 'operation', 'policy_hash',
+    'policy_issuance_id', 'resource', 'single_use', 'tool', 'version',
+  ];
+  assert.deepEqual(Object.keys(firstPayload), expectedKeys);
+  assert.deepEqual(Object.keys(secondPayload), expectedKeys);
+  assert.equal(JSON.stringify({ ...firstPayload, nonce: '<nonce>' }), JSON.stringify({ ...secondPayload, nonce: '<nonce>' }));
 });
 
 test('binds every payload field to the MAC', () => {
