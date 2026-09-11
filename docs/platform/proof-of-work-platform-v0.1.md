@@ -348,3 +348,69 @@ Sentinel, or Auditor file was deleted or destructively modified; `main` and all 
 This implementation agent does not declare acceptance, and does not tag `tna-platform-v0.1`.
 Acceptance belongs to the reviewer. This holds after the distributed-evidence closure pass above exactly
 as it held after the original 579/579 submission.
+
+---
+
+## Architectural Acceptance
+
+Status:
+ARCHITECTURALLY ACCEPTED AS TNA PLATFORM INTEGRATION v0.1
+WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+Accepted implementation commit:
+8ed65925be806d6dbd85fa0d857d80ff9633c0b7
+
+Accepted tag:
+tna-platform-v0.1
+
+Tag target:
+8ed65925be806d6dbd85fa0d857d80ff9633c0b7
+
+Accepted test baseline:
+590 / 590
+
+Repeatability:
+Two consecutive `npm run check` runs passed.
+
+Demo:
+`npm run demo:platform:v01` — 6 / 6 PASS
+
+Mandatory blockers remaining:
+0
+
+### History preserved
+
+579 / 579 original integrated suite
+→ architectural review
+→ multi-process outbox ownership gap
+→ mutable-state causation gap
+→ durable ownership lease + fencing
+→ immutable record-specific causation
+→ 11 permanent closure tests
+→ 590 / 590
+→ architectural acceptance
+
+Nothing above this section was rewritten to make either finding appear to never have existed. The
+original 579/579 result, the closure pass narrative, and this acceptance record all stand together as
+the full history of this milestone.
+
+### Accepted limitations (unchanged by acceptance)
+
+Architectural acceptance does not erase any of the following — they remain accurate, documented
+boundaries of v0.1, not silent gaps:
+
+- MCP is only a boundary interface in v0.1 (`McpToolConnector`), not a working implementation.
+- Auditor may legitimately return `INSUFFICIENT_EVIDENCE` for platform-orchestrated actions — this is a
+  real, independently computed result, never forced to `PASS`.
+- Runtime observations are limited to the implemented synchronous, non-isolated connector model — there
+  is no long-running in-flight window instrumented further in v0.1.
+- There is no global ACID transaction across all TNA components (Gate, Sentinel, Ledger, VAD, external
+  connectors, Auditor) — only the transactional outbox between the platform's own state and Ledger.
+- There is no exactly-once external side-effect guarantee — only at-most-once capability redemption,
+  request-submission idempotency, and one logical Ledger event through claim + idempotency; an
+  uncertain external side effect is represented as `INDETERMINATE`, never blindly retried.
+- The outbox delivery-ownership lease has a fixed duration with no heartbeat-renewal mechanism for a
+  hypothetically long-running delivery attempt.
+- The platform is not yet cloud/container deployment-ready — no containerization, orchestration, or
+  cloud-target configuration exists.
+- No frontend, no billing, no external customer IAM exists yet.
