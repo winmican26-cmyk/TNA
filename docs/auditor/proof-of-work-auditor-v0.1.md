@@ -497,3 +497,70 @@ No other flow changed.
 
 Still does not declare acceptance and does not tag `tna-auditor-v0.1`. Acceptance belongs to the
 reviewer, on top of both this document and `docs/auditor/auditor-v0.1-trust-closure.md`.
+
+---
+
+## ARCHITECTURAL ACCEPTANCE
+
+# ARCHITECTURALLY ACCEPTED AS TNA AUDITOR v0.1
+# WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+**Accepted implementation commit:**
+9018422fb78f2ebcfacc2e0b24d947859ee58a63
+
+**Accepted tag:**
+tna-auditor-v0.1
+
+**Acceptance test baseline:**
+535 / 535
+
+**Demo:**
+PASS (5/5 flows — A: healthy deployment, B: missing Sentinel under high-risk profile, C: corrupt
+Ledger, D: containment uncertainty, E: tampered package)
+
+**Mandatory blockers remaining:**
+0
+
+### Historical record (preserved, not rewritten)
+
+1. Original TNA Auditor v0.1 implementation reached **526/526** passing, two consecutive
+   `npm run check` runs, all five demo flows green — recorded as READY FOR ARCHITECTURAL ACCEPTANCE
+   REVIEW.
+2. A subsequent architectural review — conducted *after* that green baseline, before acceptance —
+   found two trust-boundary gaps not caught by any individual test:
+   - Evidence-integrity qualification was checked by individual control evaluators (`TNA-INTEG-001`,
+     `TNA-AUTH-001`) rather than enforced architecturally; a control whose evaluator never checked
+     stream integrity could PASS on corrupted evidence.
+   - Manifest hash integrity (`verifyManifestIntegrity`) was being treated as sufficient for trust,
+     conflating integrity (is the content internally consistent?) with authenticity (did this content
+     actually come from the accepted baseline?).
+3. **Per-control evidence-integrity qualification added**: a central `qualifyEvidenceIntegrity` gate
+   now runs inside `evaluateControl()` for every control except `TNA-INTEG-001` itself, downgrading any
+   PASS/PARTIAL result that cites corrupt (`INVALID`) or unconfirmed (`UNVERIFIED`/`UNAVAILABLE`)
+   Ledger evidence to `INSUFFICIENT_EVIDENCE` — architectural, not per-evaluator convention (Finding 1,
+   TNA-41: "evidence integrity is transitive to the conclusion").
+4. **Manifest integrity and authenticity separated**: `trust_class: ManifestTrustClass` now exists
+   independently of `verifyManifestIntegrity`. Only `BUILT_IN_ACCEPTED_BASELINE` — reachable through
+   exactly one compiled code path, pinned to the six accepted tag/commit anchors — can automatically
+   satisfy an implementation-level control claim. Admin-installed manifests are always `ADMIN_PROVIDED`
+   and are never wired into evaluation, regardless of hash consistency (Finding 2, TNA-42: "integrity
+   does not imply authenticity").
+5. **9 closure tests added** (4 in `auditor-controls.test.ts`, 2 in `auditor-engine.test.ts`, 3 in
+   `auditor-package.test.ts`) — corrupt Gate/VAD/Sentinel/mixed evidence cannot support PASS; an
+   irrelevant corrupt stream does not poison an unrelated control; an admin-installed, hash-valid
+   manifest fabricating a claim cannot satisfy it; a caller-declared
+   `trust_classification=BUILT_IN_ACCEPTED_BASELINE` is rejected; package-level tampering of either
+   `integrity_qualification` or `manifest_trust_summary.trust_class` is caught by
+   `verifyAuditPackage`.
+6. Suite reached **535/535** (526 original + 9 closure), two consecutive clean `npm run check` runs,
+   all five demo flows still green (Flow C strengthened with an explicit dependent-control
+   `INSUFFICIENT_EVIDENCE` assertion; Flow D redesigned around real evidence since its prior
+   manifest-swap mechanism became structurally impossible under the Finding 2 fix).
+7. **Architectural acceptance** granted at commit `9018422fb78f2ebcfacc2e0b24d947859ee58a63`, tagged
+   `tna-auditor-v0.1`.
+
+Full closure detail (root cause, before/after behavior, fix design, tests, per-finding rationale) is in
+`docs/auditor/auditor-v0.1-trust-closure.md`. Documented scope and limitations remain exactly as stated
+throughout this document and `docs/auditor/auditor-threat-model-v0.1.md`: no external compliance
+certification is claimed; VAD atom evidence is not agent-reachable without explicit `correlation_ids`;
+export-path safety, maturity scoring, and regulatory mapping are explicitly out of scope for v0.1.
