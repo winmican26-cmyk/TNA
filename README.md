@@ -51,7 +51,7 @@ clock budget, an independent verifier, and auditable human-decision override. Ru
 `npm run demo:vad:v01`. See [docs/vad/](docs/vad/) for the requirement matrix, threat model, and
 proof-of-work.
 
-## Volume 5 status — TNA Ledger (v0.1 in development)
+## Volume 5 status — TNA Ledger (v0.1 accepted)
 
 TNA Ledger (`packages/ledger-schema`, `ledger-core`, `ledger-store`, `ledger-integrity`,
 `ledger-query`, `apps/tna-ledger`) is the machine-action provenance and evidence subsystem: a
@@ -59,10 +59,11 @@ strict, versioned event schema; per-stream hash chaining with monotonic sequenci
 isolation; orphan/invariant rejection (no `CAPABILITY_REDEEMED` without a prior `CAPABILITY_ISSUED`,
 etc.); Gate and VAD reconstruction from evidence alone; and portable, independently-verifiable JSON
 export. It records evidence — it does not authorize (Gate) or verify correctness (VAD). Run
-`npm run demo:ledger:v01`. **Not yet accepted** — see [docs/ledger/proof-of-work-ledger-v0.1.md](docs/ledger/proof-of-work-ledger-v0.1.md)
-and [docs/ledger/ledger-threat-model-v0.1.md](docs/ledger/ledger-threat-model-v0.1.md) before relying
-on it; hash chaining is not a tamper-proof or WORM claim (see the threat model's residual-risk
-section).
+`npm run demo:ledger:v01`. **TNA Ledger v0.1 — Architecturally accepted with documented scope and
+limitations** (tag `tna-ledger-v0.1`) — see [docs/ledger/proof-of-work-ledger-v0.1.md](docs/ledger/proof-of-work-ledger-v0.1.md)
+and [docs/ledger/ledger-threat-model-v0.1.md](docs/ledger/ledger-threat-model-v0.1.md) for scope and
+residual risk before relying on it; hash chaining is not a tamper-proof or WORM claim (see the
+threat model's residual-risk section).
 
 ## Repository
 
