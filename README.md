@@ -115,6 +115,23 @@ subsystems it coordinates, and cannot universally roll back a connector's non-id
 once performed (see the threat
 model's distributed-transaction and connector-side-effect limitations).
 
+## Volume 9 status — TNA Deployment Engineering v0.1 — Architecturally accepted with documented scope and limitations
+
+TNA Deployment Engineering (`packages/deployment-schema`, `deployment-health`, `deployment-ops`,
+`deploy/`, deployment additions to `apps/tna-platform`) makes the accepted platform reproducibly
+deployable, operable, recoverable, and safely configurable — without weakening any security boundary
+accepted in Volumes 1-8. It covers strict fail-closed configuration, a secret-reference model, a
+non-root read-only-rootfs container, liveness/readiness health, structured redacted logging and bounded
+metrics, and a backup/restore/upgrade/rollback model whose cross-component consistency is guaranteed by
+requiring the deployment to be stopped while a backup is taken (see the recovery-consistency closure in
+[docs/deployment/deployment-v0.1-recovery-consistency-closure.md](docs/deployment/deployment-v0.1-recovery-consistency-closure.md)).
+Run `npm run demo:deployment:v01`. See
+[docs/deployment/proof-of-work-deployment-v0.1.md](docs/deployment/proof-of-work-deployment-v0.1.md) and
+[docs/deployment/deployment-threat-model-v0.1.md](docs/deployment/deployment-threat-model-v0.1.md) for
+full scope and residual risk before relying on it; it is single-host and SQLite-based, not HA, not
+multi-region, not Kubernetes production infrastructure, not managed cloud, not internet-scale DDoS
+mitigation, not HSM/KMS-backed by default, and not a production/compliance certification of any kind.
+
 ## Repository
 
 ```text
