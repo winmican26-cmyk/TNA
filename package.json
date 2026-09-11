@@ -24,7 +24,10 @@
     "tna:backup": "npm run build && node dist/scripts/tna-backup.js",
     "tna:restore": "npm run build && node dist/scripts/tna-restore.js",
     "smoke:deployment:v01": "npm run build && node dist/scripts/smoke-deployment-v01.js",
-    "demo:deployment:v01": "npm run build && node dist/scripts/demo-deployment-v01.js"
+    "demo:deployment:v01": "npm run build && node dist/scripts/demo-deployment-v01.js",
+    "start:client-gateway": "node dist/apps/tna-client-gateway/src/main.js",
+    "demo:client-integration:v01": "npm run build && node dist/scripts/demo-client-integration-v01.js",
+    "smoke:client-integration:v01": "npm run build && node dist/scripts/smoke-client-integration-v01.js"
   },
   "dependencies": {"zod": "4.1.5"},
   "devDependencies": {"typescript": "5.9.2", "@types/node": "24.3.1", "eslint": "9.35.0", "typescript-eslint": "8.42.0", "@eslint/js": "9.35.0"}
