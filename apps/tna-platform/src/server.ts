@@ -7,6 +7,10 @@ import {
 } from '../../../packages/platform-core/src/index.js';
 import { AuditorRuntime, type AuditorPrincipal } from '../../../packages/auditor-engine/src/index.js';
 import { buildAuditPackage } from '../../../packages/auditor-report/src/index.js';
+import { redact } from '../../../packages/deployment-schema/src/index.js';
+import type { MetricsRegistry } from '../../../packages/deployment-health/src/index.js';
+import { getLiveness, getReadiness, type HealthDeps } from './health.js';
+import { buildDiagnostics, listDeadLetters } from './diagnostics.js';
 import { validateCredentials, principalFor, type PlatformCredentials } from './writers.js';
 
 export class HttpError extends Error {
@@ -32,6 +36,10 @@ async function body(req: IncomingMessage): Promise<unknown> {
 function send(res: ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
   res.end(JSON.stringify(data));
+}
+function sendText(res: ServerResponse, status: number, text: string): void {
+  res.writeHead(status, { 'Content-Type': 'text/plain; version=0.0.4', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.end(text);
 }
 
 function readPageParams(url: URL): { limit?: number; cursor?: string } {
@@ -61,6 +69,15 @@ export interface PlatformServerDeps {
   readonly facade: PlatformFacade;
   readonly control: PlatformControlOrchestrator;
   readonly auditor?: { readonly runtime: AuditorRuntime; readonly principal: AuditorPrincipal };
+  /** Section 31-33: full mandatory-dependency readiness wiring. Optional — a caller (such as an
+   * isolated unit test) that omits it still gets a reduced /ready check against `store` alone. */
+  readonly health?: HealthDeps;
+  /** Section 61-63, 74, 75, 64: present in a real deployment; absent in isolated tests that don't
+   * exercise observability/diagnostics routes. */
+  readonly metrics?: MetricsRegistry;
+  readonly startedAt?: number;
+  readonly configHash?: string;
+  readonly deploymentId?: string;
 }
 
 /**
@@ -72,16 +89,43 @@ export interface PlatformServerDeps {
  */
 export function createPlatformServer(deps: PlatformServerDeps, credentials: PlatformCredentials, tenantId: string) {
   validateCredentials(credentials);
+  const startedAt = deps.startedAt ?? Date.now();
   const server = createServer({ maxHeaderSize: 8192, requestTimeout: 30000, headersTimeout: 10000 }, (req, res) => {
     void (async () => {
       try {
+        const url = new URL(req.url ?? '/', 'http://localhost');
+        const path = url.pathname;
+
+        // Section 31: liveness/readiness are conventionally unauthenticated (a container orchestrator
+        // or load balancer probes them with no credential) — but they are read-only status surfaces,
+        // never a control-plane route, and never return a secret (section 34).
+        if (req.method === 'GET' && path === '/live') return send(res, 200, getLiveness(startedAt));
+        if (req.method === 'GET' && path === '/ready') {
+          const readiness = deps.health ? await getReadiness(deps.health) : await reducedReadiness(deps.store, tenantId);
+          return send(res, readiness.ready ? 200 : 503, readiness);
+        }
+
         const authorization = req.headers.authorization;
         if (!authorization?.startsWith('Bearer ')) throw new HttpError(401, 'Bearer credential required');
         const principal: PlatformPrincipal | null = principalFor(authorization.slice(7), credentials, tenantId);
         if (!principal) throw new HttpError(401, 'Invalid credential');
 
-        const url = new URL(req.url ?? '/', 'http://localhost');
-        const path = url.pathname;
+        // Section 64, 21, 61-63: operator-diagnostics and metrics surfaces. Never a raw config dump —
+        // admin/service credential only, and every field returned is pre-vetted as non-secret.
+        if (req.method === 'GET' && path === '/diagnostics') {
+          assertAdminOrService(principal);
+          const readiness = deps.health ? await getReadiness(deps.health) : { status: 'AVAILABLE' as const };
+          return send(res, 200, redact(buildDiagnostics(deps.store, principal.tenantId, deps.configHash ?? 'unknown', deps.deploymentId ?? 'unknown', readiness.status)));
+        }
+        if (req.method === 'GET' && path === '/metrics') {
+          assertAdminOrService(principal);
+          if (!deps.metrics) throw new HttpError(503, 'Metrics are not configured');
+          return sendText(res, 200, deps.metrics.renderPrometheus());
+        }
+        if (req.method === 'GET' && path === '/v1/platform/outbox/dead-letters') {
+          assertAdminOrService(principal);
+          return send(res, 200, listDeadLetters(deps.store, principal.tenantId));
+        }
 
         if (req.method === 'POST' && path === '/v1/platform/actions') {
           const input = await body(req);
@@ -120,6 +164,17 @@ export function createPlatformServer(deps: PlatformServerDeps, credentials: Plat
   });
   server.maxRequestsPerSocket = 100;
   return server;
+}
+
+/** Used only when `deps.health` was not supplied (isolated tests) — checks the one dependency always
+ * present, `store`, so /ready never simply lies "ready" without checking anything. */
+async function reducedReadiness(store: PlatformStore, tenantId: string): Promise<{ ready: boolean; status: 'AVAILABLE' | 'UNAVAILABLE'; components: readonly { component: string; status: string }[] }> {
+  try { store.list(tenantId, { limit: 1 }); return { ready: true, status: 'AVAILABLE', components: [{ component: 'platform_store', status: 'AVAILABLE' }] }; }
+  catch { return { ready: false, status: 'UNAVAILABLE', components: [{ component: 'platform_store', status: 'UNAVAILABLE' }] }; }
+}
+
+function assertAdminOrService(principal: PlatformPrincipal): void {
+  if (principal.role !== 'platform-admin' && principal.role !== 'platform-service') throw new HttpError(403, 'Operator diagnostics require an admin or service credential');
 }
 
 /** A platform-agent principal may only read its own action; operator/admin/service may read any

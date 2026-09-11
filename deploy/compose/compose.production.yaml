@@ -1,0 +1,91 @@
+# TNA Deployment Engineering v0.1 — production baseline (section 119).
+#
+# Visually and functionally distinguished from `compose.yaml`: TLS terminates at Caddy (section 26-27);
+# `tna-platform` is not port-published at all — only Caddy is (section 24); secrets are file-mounted,
+# never passed as literal environment values (section 18-19, 117); the data volume is a named Docker
+# volume, never a developer-machine bind mount; the platform container's root filesystem is read-only
+# with an explicit writable volume for `/data` only (section 10); resource limits and a bounded restart
+# policy are set (section 68-69, 72).
+#
+# Prerequisites: create `deploy/compose/secrets/{operator_token,admin_token,service_token,capability_key}.txt`
+# (see `.env.example` / `docs/deployment/deployment-secrets-v0.1.md` — never commit real secret files)
+# and set `TNA_PUBLIC_HOSTNAME` for Caddy's automatic TLS.
+#
+# Run from the repository root: docker compose -f deploy/compose/compose.production.yaml up -d --build
+name: tna-platform-prod
+services:
+  tna-platform:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    image: tna-platform:${TNA_IMAGE_TAG:-0.1.0}
+    environment:
+      TNA_ENV: production
+      TNA_TENANT_ID: ${TNA_TENANT_ID:-tenant_default}
+      TNA_HOST: 0.0.0.0
+      TNA_PORT: "4618"
+      # Trusted because Caddy — the only other service on this network — is the sole peer that can
+      # reach this port (section 22-24, 28): forwarded headers from it are meaningful, not spoofable by
+      # an arbitrary internet client.
+      TNA_TRUST_PROXY: "true"
+      TNA_DATA_DIR: /data
+      TNA_CORS_ALLOW_ORIGIN: ""
+      TNA_OPERATOR_TOKEN_FILE: /run/secrets/tna_operator_token
+      TNA_ADMIN_TOKEN_FILE: /run/secrets/tna_admin_token
+      TNA_SERVICE_TOKEN_FILE: /run/secrets/tna_service_token
+      TNA_CAPABILITY_KEY_FILE: /run/secrets/tna_capability_key
+    secrets:
+      - tna_operator_token
+      - tna_admin_token
+      - tna_service_token
+      - tna_capability_key
+    volumes:
+      - tna-platform-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+    restart: on-failure:5
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4618/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  reverse-proxy:
+    image: caddy:2-alpine
+    depends_on:
+      tna-platform:
+        condition: service_healthy
+    environment:
+      TNA_PUBLIC_HOSTNAME: ${TNA_PUBLIC_HOSTNAME:?set TNA_PUBLIC_HOSTNAME to your public hostname}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: on-failure:5
+
+secrets:
+  tna_operator_token:
+    file: ./secrets/operator_token.txt
+  tna_admin_token:
+    file: ./secrets/admin_token.txt
+  tna_service_token:
+    file: ./secrets/service_token.txt
+  tna_capability_key:
+    file: ./secrets/capability_key.txt
+
+volumes:
+  tna-platform-data:
+  caddy-data:
+  caddy-config:

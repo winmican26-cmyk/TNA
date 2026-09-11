@@ -1,0 +1,34 @@
+# TNA Deployment Engineering v0.1 — the one supported reverse-proxy configuration (section 27), used
+# only by `compose.production.yaml`. TLS terminates here (Caddy's automatic HTTPS); `tna-platform`
+# itself is never reachable from outside this Docker network. Request-size bound, forwarded headers,
+# timeouts, and baseline security headers are all set explicitly (section 27-29, 67-69) rather than
+# left to Caddy's own defaults.
+
+{$TNA_PUBLIC_HOSTNAME} {
+	encode gzip
+
+	request_body {
+		max_size 2MB
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# Section 29: no browser frontend exists behind this proxy — CORS is left unset here entirely
+	# (restrictive by omission); the platform's own `cors_allow_origin` config independently defaults
+	# to no header at all (never `*`) for its authenticated control-plane API.
+
+	reverse_proxy tna-platform:4618 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+			read_timeout 35s
+		}
+	}
+}

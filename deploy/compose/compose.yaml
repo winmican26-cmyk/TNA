@@ -1,0 +1,39 @@
+# TNA Deployment Engineering v0.1 — development baseline (section 118-119).
+#
+# Visually and functionally distinguished from `compose.production.yaml`: this file publishes the
+# platform's port directly (no reverse proxy / TLS), uses a bind-mounted data directory for easy local
+# inspection, and accepts the development environment's relaxed defaults. NEVER use this file in
+# production — see `compose.production.yaml` and `docs/deployment/deployment-topology-v0.1.md`.
+#
+# Run from the repository root: docker compose -f deploy/compose/compose.yaml up -d --build
+name: tna-platform-dev
+services:
+  tna-platform:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    image: tna-platform:dev
+    environment:
+      TNA_ENV: development
+      TNA_TENANT_ID: tenant_demo
+      TNA_HOST: 0.0.0.0
+      TNA_PORT: "4618"
+      TNA_TRUST_PROXY: "false"
+      TNA_DATA_DIR: /data
+      TNA_CORS_ALLOW_ORIGIN: ""
+      # Development-only placeholder credentials — never reused in production (section 95-96 reject
+      # exactly these kinds of values outright once TNA_ENV=production).
+      TNA_OPERATOR_TOKEN: dev-operator-token-please-change-3x
+      TNA_ADMIN_TOKEN: dev-admin-token-please-change-32xx
+      TNA_SERVICE_TOKEN: dev-service-token-please-change-3x
+    ports:
+      - "4618:4618"
+    volumes:
+      - ./dev-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4618/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
