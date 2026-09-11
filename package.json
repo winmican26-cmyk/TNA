@@ -12,7 +12,9 @@
     "demo:v03": "npm run build && node dist/scripts/demo-v03.js",
     "demo:vad:v01": "npm run build && node dist/scripts/demo-vad-v01.js",
     "demo:ledger:v01": "npm run build && node dist/scripts/demo-ledger-v01.js",
-    "start:ledger": "node dist/apps/tna-ledger/src/main.js"
+    "start:ledger": "node dist/apps/tna-ledger/src/main.js",
+    "demo:sentinel:v01": "npm run build && node dist/scripts/demo-sentinel-v01.js",
+    "start:sentinel": "node dist/apps/tna-sentinel/src/main.js"
   },
   "dependencies": {"zod": "4.1.5"},
   "devDependencies": {"typescript": "5.9.2", "@types/node": "24.3.1", "eslint": "9.35.0", "typescript-eslint": "8.42.0", "@eslint/js": "9.35.0"}

@@ -20,9 +20,16 @@ export class LedgerError extends Error {
 export type ActorType = 'AGENT' | 'HUMAN' | 'SYSTEM' | 'SERVICE' | 'VERIFIER' | 'PRODUCER' | 'ADMIN' | 'APPROVER';
 export const ACTOR_TYPES: readonly ActorType[] = ['AGENT', 'HUMAN', 'SYSTEM', 'SERVICE', 'VERIFIER', 'PRODUCER', 'ADMIN', 'APPROVER'];
 
-/** Controlled origin registry. An untrusted source name must never be accepted verbatim. */
-export type SourceComponent = 'tna-gate' | 'execution-broker' | 'isolation-runner' | 'vad-engine' | 'human-decision-service' | 'ledger';
-export const SOURCE_COMPONENTS: readonly SourceComponent[] = ['tna-gate', 'execution-broker', 'isolation-runner', 'vad-engine', 'human-decision-service', 'ledger'];
+/**
+ * Controlled origin registry. An untrusted source name must never be accepted verbatim.
+ *
+ * `'sentinel'` was added in the TNA Sentinel v0.1 milestone (Volume 6, section 58: "Ledger Extension
+ * Discipline"). This is a purely additive change — no existing value was removed or renamed, so every
+ * event accepted under the tagged `tna-ledger-v0.1` commit remains valid under this schema. The tag
+ * itself is untouched; this file is part of how the branch evolves beyond it.
+ */
+export type SourceComponent = 'tna-gate' | 'execution-broker' | 'isolation-runner' | 'vad-engine' | 'human-decision-service' | 'ledger' | 'sentinel';
+export const SOURCE_COMPONENTS: readonly SourceComponent[] = ['tna-gate', 'execution-broker', 'isolation-runner', 'vad-engine', 'human-decision-service', 'ledger', 'sentinel'];
 
 export const EVENT_TYPES = [
   'AGENT_REGISTERED',
@@ -34,6 +41,10 @@ export const EVENT_TYPES = [
   'ATOM_VERIFICATION_ACCEPTED', 'ATOM_VERIFICATION_REJECTED', 'ATOM_HUMAN_DECISION', 'ATOM_ACCEPTED', 'ATOM_REJECTED', 'ATOM_ESCALATED',
   'POLICY_ISSUED', 'POLICY_REPLACED', 'AGENT_REVOKED',
   'INTEGRITY_CHECK_PASSED', 'INTEGRITY_CHECK_FAILED',
+  // Added in TNA Sentinel v0.1 (Volume 6, section 57-58) — additive only, see SourceComponent above.
+  'SENTINEL_SESSION_STARTED', 'SENTINEL_VIOLATION_DETECTED', 'SENTINEL_WARNING', 'SENTINEL_HOLD',
+  'SENTINEL_TERMINATION_REQUESTED', 'SENTINEL_TERMINATED', 'SENTINEL_CONTAINMENT_FAILED',
+  'SENTINEL_EMERGENCY_STOP_ACTIVATED', 'SENTINEL_EMERGENCY_STOP_RELEASED', 'SENTINEL_SESSION_COMPLETED',
 ] as const;
 export type LedgerEventType = typeof EVENT_TYPES[number];
 const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);

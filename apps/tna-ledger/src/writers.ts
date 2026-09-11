@@ -11,6 +11,10 @@ export function gateWriter(tenantId: string): LedgerPrincipal {
 export function vadWriter(tenantId: string): LedgerPrincipal {
   return writerPrincipal('ledger-writer-vad', tenantId, ['vad-engine', 'human-decision-service']);
 }
+/** Added in TNA Sentinel v0.1 (Volume 6). Additive only — does not alter gateWriter/vadWriter/reader/admin. */
+export function sentinelWriter(tenantId: string): LedgerPrincipal {
+  return writerPrincipal('ledger-writer-sentinel', tenantId, ['sentinel']);
+}
 export function reader(tenantId: string): LedgerPrincipal {
   return readerPrincipal('ledger-reader', tenantId);
 }
