@@ -469,16 +469,86 @@ through the real compiled production binary — not merely documented as accepta
 
 ## Final Git Status
 
-Branch `trust-no-agent-main`. New Volume 10 files (four packages, `apps/tna-client-gateway` including the
-new `governed-execution.ts`, the MCP fixture, the demo script, the new smoke script, 13 test files, 23
-docs) are currently untracked/uncommitted; `package.json` and `package-lock.json` are modified in place
-(additive: new scripts, new workspace packages registered). No accepted Gate/VAD/Ledger/Sentinel/
-Auditor/Platform/Deployment file was deleted or destructively modified; `main` and all nine accepted tags
-are untouched. `tna-client-integration-v0.1` remains untagged.
+Branch `trust-no-agent-main`. All Volume 10 files (four packages, `apps/tna-client-gateway` including
+`governed-execution.ts`, the MCP fixture, the demo script, the smoke script, 13 test files, 23 docs) are
+committed in the accepted implementation commit (see "Architectural Acceptance" below); `package.json`
+and `package-lock.json` were modified in the same commit (additive: new scripts, new workspace packages
+registered). No accepted Gate/VAD/Ledger/Sentinel/Auditor/Platform/Deployment file was deleted or
+destructively modified; `main` and all nine prior accepted tags are untouched. `output/` (pre-existing,
+unrelated to Volume 10) was never staged.
 
 ## Recommendation
 
 > **READY FOR ARCHITECTURAL ACCEPTANCE REVIEW**
 
-This implementation agent does not declare acceptance and does not tag
-`tna-client-integration-v0.1`. Acceptance belongs to the reviewer.
+This section is preserved as the implementation agent's own recommendation at the time it was written —
+see "Architectural Acceptance" below for the actual acceptance decision and its evidence.
+
+## Architectural Acceptance
+
+Status:
+ARCHITECTURALLY ACCEPTED AS TNA CLIENT INTEGRATION & MCP GATEWAY v0.1
+WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+Accepted implementation commit:
+57e63e9643376c27c1ff77b9f5298f0fa16b5e45
+
+Accepted tag:
+tna-client-integration-v0.1
+
+Tag target:
+57e63e9643376c27c1ff77b9f5298f0fa16b5e45
+
+Accepted test baseline:
+757 / 757
+
+Repeatability:
+Two consecutive npm run check runs passed.
+
+Demo:
+npm run demo:client-integration:v01 — 6 / 6 PASS
+
+Packaged smoke:
+npm run smoke:client-integration:v01 — PASS
+
+Real packaged binary:
+PASS
+
+Real MCP process:
+PASS
+
+Containerized governed execution:
+PASS
+
+Mandatory blockers remaining:
+0
+
+### Documented scope and limitations (preserved, not erased)
+
+- MCP server code itself is not inherently trusted (§116) — TNA mediates the interface (tool, arguments,
+  policy, timeouts, honest error reporting); it does not audit, sandbox, or certify the MCP server
+  binary, and cannot observe or control what happens inside that process.
+- TNA cannot guarantee complete mediation if a client retains parallel credentials or direct network
+  access to the governed system (§117, the client-environment-bypass limitation) — `computeBypassAssessment`
+  makes this an explicit, auditable attestation rather than an implicit assumption, but cannot itself
+  detect a bypass it isn't told about.
+- MCP execution has only the runtime observation depth actually implemented — no binary attestation, no
+  MCP-internal behavioral monitoring beyond the protocol boundary.
+- Client-hosted/single-host remains the concrete v0.1 deployment baseline — the same posture Volume 9
+  established for `apps/tna-platform`, not HA, not multi-region.
+- No SaaS hosting layer exists yet.
+- No billing.
+- No customer frontend.
+- No enterprise SSO/SCIM.
+- No Kubernetes/multi-region infrastructure.
+- No claim of regulatory certification (no ISO 27001, SOC 2, NIST, EU AI Act, DORA, HIPAA, GDPR, NIS2, or
+  PCI DSS status is claimed).
+- No claim that protocol compatibility implies tool safety — a server correctly speaking MCP's wire
+  protocol has made no claim about what its tools actually do.
+- **Packaged-path closure note**: a dedicated packaged-binary restart/reconstruction regression was not
+  added in the packaged-execution closure; restart durability relies on already-accepted Platform/
+  Deployment persistence semantics (`PlatformStore`/`Ledger`/`ClientStore` are plain SQLite files with no
+  gateway-owned in-memory state, the same discipline Volumes 8-9 already proved for `apps/tna-platform`'s
+  identical pattern). This is *not* a newly and independently proven packaged-binary restart property —
+  it is an inference from an already-accepted pattern, recorded here exactly that way so it is never
+  mistaken for a dedicated test result.
