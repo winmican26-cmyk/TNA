@@ -493,3 +493,80 @@ untouched. `tna-deployment-v0.1` remains untagged.
 
 This implementation agent does not declare acceptance, and does not tag `tna-deployment-v0.1`.
 Acceptance belongs to the reviewer.
+
+---
+
+## Architectural Acceptance
+
+Status:
+ARCHITECTURALLY ACCEPTED AS TNA DEPLOYMENT ENGINEERING v0.1
+WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+Accepted implementation commit:
+3803c4694ed054fb43b7a9cf7897bd70e642f42c
+
+Accepted tag:
+tna-deployment-v0.1
+
+Tag target:
+3803c4694ed054fb43b7a9cf7897bd70e642f42c
+
+Accepted test baseline:
+662 / 662
+
+Repeatability:
+Two consecutive `npm run check` runs passed.
+
+Smoke:
+`npm run smoke:deployment:v01` — PASS
+
+Demo:
+`npm run demo:deployment:v01` — 6 / 6 PASS
+
+Real container verification:
+PASS (non-root, read-only rootfs, fresh boot, repeat boot, real SIGTERM, readiness)
+
+Mandatory blockers remaining:
+0
+
+### History preserved
+
+656 / 656 initial Volume 9 candidate
+→ architectural recovery review
+→ live multi-database backup inconsistency reproduced
+→ stop-required backup model
+→ staging + atomic publication
+→ pending outbox restore proof
+→ restore-before-replacement validation ordering
+→ 6 permanent recovery closure tests
+→ 662 / 662
+→ architectural acceptance
+
+Nothing above this section was rewritten to make the reproduced backup-consistency defect appear to have
+never existed. The original 656/656 submission, the recovery-consistency review's finding and fix, and
+this acceptance record all stand together as the full history of this milestone — exactly as Volume 8's
+own distributed-evidence closure preserved its own history before its acceptance.
+
+### Accepted limitations (unchanged by acceptance)
+
+Architectural acceptance does not erase any of the following — they remain accurate, documented
+boundaries of v0.1, not silent gaps:
+
+- Single-host, SQLite-based — not HA, not multi-region replication, no automatic failover, no managed
+  disaster-recovery replica.
+- Not Kubernetes production infrastructure, not managed cloud infrastructure.
+- No claim of internet-scale DDoS mitigation — only application- and proxy-level resource bounds.
+- Not HSM/KMS-backed by default — secrets resolve from an environment value or a mounted file only.
+- Not automated disaster-recovery replication — a backup restored by an operator is the only recovery
+  mechanism for total single-host loss, and (per the recovery-consistency closure) requires the
+  deployment to be stopped while the backup is taken.
+- Not external-customer-IAM complete — a single static demo-style agent credential remains the only
+  agent identity mechanism in v0.1.
+- Not a production/compliance certification of any kind.
+- Base image pinned by tag (`node:24-slim`), not by content digest.
+- No SBOM generation, no vulnerability scan wired into `npm run check` (both explicitly optional per the
+  governing brief).
+- No dedicated application rate limiter beyond size/timeout bounds.
+- No dead-letter manual-retry workflow (read-only inspection only).
+- `trust_proxy` is a topology declaration only — forwarded headers (`X-Forwarded-For`/`-Proto`) are not
+  yet consumed for any authorization or rate-limiting decision.
