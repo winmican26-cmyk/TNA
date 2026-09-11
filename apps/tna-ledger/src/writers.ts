@@ -15,8 +15,18 @@ export function vadWriter(tenantId: string): LedgerPrincipal {
 export function sentinelWriter(tenantId: string): LedgerPrincipal {
   return writerPrincipal('ledger-writer-sentinel', tenantId, ['sentinel']);
 }
+/** Added in TNA Auditor v0.1 (Volume 7). Additive only — does not alter any existing writer/reader/admin. */
+export function auditorWriter(tenantId: string): LedgerPrincipal {
+  return writerPrincipal('ledger-writer-auditor', tenantId, ['auditor']);
+}
 export function reader(tenantId: string): LedgerPrincipal {
   return readerPrincipal('ledger-reader', tenantId);
+}
+/** A distinct reader identity for the Auditor's own Ledger evidence provider (section 15) — reuses
+ * the generic readerPrincipal factory; Ledger itself has one reader *role*, not per-consumer ACLs,
+ * so this is a naming/traceability distinction rather than a different privilege level. */
+export function auditorLedgerReader(tenantId: string): LedgerPrincipal {
+  return readerPrincipal('ledger-reader-auditor', tenantId);
 }
 export function admin(tenantId: string): LedgerPrincipal {
   return adminPrincipal('ledger-admin', tenantId);
