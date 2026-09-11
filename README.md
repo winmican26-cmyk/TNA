@@ -132,7 +132,7 @@ full scope and residual risk before relying on it; it is single-host and SQLite-
 multi-region, not Kubernetes production infrastructure, not managed cloud, not internet-scale DDoS
 mitigation, not HSM/KMS-backed by default, and not a production/compliance certification of any kind.
 
-## Volume 10 status — TNA Client Integration & MCP Gateway v0.1 — in development
+## Volume 10 status — TNA Client Integration & MCP Gateway v0.1 — Architecturally accepted with documented scope and limitations
 
 TNA Client Integration & MCP Gateway (`packages/client-schema`, `client-core`, `mcp-schema`,
 `mcp-gateway`, `apps/tna-client-gateway`) lets TNA govern a real external client organization's agents
@@ -141,20 +141,24 @@ identity and credential lifecycle, MCP server registration and discovery, a gove
 automatic schema-drift detection, deterministic (non-LLM) risk classification, policy binding, and a
 client-facing HTTP API. Real MCP child processes are spawned with `shell:false`, an explicit argv, and a
 bounded environment allowlist; discovery and execution were proven against both a real spawned MCP
-process and a real Docker container built from the same image as Volume 9. Run
-`npm run demo:client-integration:v01`. See
+process and a real Docker container built from the same image as Volume 9, and the packaged production
+entrypoint (`apps/tna-client-gateway/src/main.ts`) itself was proven end to end — real Gate ALLOW/BLOCK,
+real Sentinel prevention, real MCP invocation, real Ledger evidence — through the actual compiled binary,
+both bare and containerized. Run `npm run demo:client-integration:v01` and
+`npm run smoke:client-integration:v01`. See
 [docs/client-integration/proof-of-work-client-integration-v0.1.md](docs/client-integration/proof-of-work-client-integration-v0.1.md),
 [docs/client-integration/client-integration-threat-model-v0.1.md](docs/client-integration/client-integration-threat-model-v0.1.md),
+[docs/client-integration/client-integration-requirement-matrix-v0.1.md](docs/client-integration/client-integration-requirement-matrix-v0.1.md),
 and
-[docs/client-integration/client-integration-requirement-matrix-v0.1.md](docs/client-integration/client-integration-requirement-matrix-v0.1.md)
-for full scope and residual risk, and
 [docs/client-integration/client-integration-v0.1-packaged-path-closure.md](docs/client-integration/client-integration-v0.1-packaged-path-closure.md)
-for the packaged-execution closure that wired the packaged production entrypoint
-(`apps/tna-client-gateway/src/main.ts`) to the full Gate→Capability→Sentinel→Broker→MCP path — proven
-end to end against the real compiled binary, both bare (`client-gateway-packaged-path.test.ts`,
-`npm run smoke:client-integration:v01`) and containerized (`client-gateway-container.test.ts`). **TNA
-Client Integration & MCP Gateway v0.1 — in development.** It is not architecturally accepted and is not
-tagged.
+for full scope and residual risk before relying on it. **TNA Client Integration & MCP Gateway v0.1 —
+Architecturally accepted with documented scope and limitations** (tag `tna-client-integration-v0.1`).
+MCP server code is not inherently trusted and TNA cannot observe its internal behavior; TNA cannot
+guarantee complete mediation if a client retains parallel credentials or direct access to the governed
+system; there is no binary attestation for MCP servers; client-hosted/single-host remains the concrete
+v0.1 deployment baseline; and no SaaS hosting layer, billing, customer frontend, enterprise SSO/SCIM,
+Kubernetes/multi-region infrastructure, or regulatory certification of any kind is claimed (see the
+proof-of-work's "Architectural Acceptance" section for the complete list).
 
 ## Repository
 
