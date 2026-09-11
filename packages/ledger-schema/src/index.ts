@@ -25,12 +25,15 @@ export const ACTOR_TYPES: readonly ActorType[] = ['AGENT', 'HUMAN', 'SYSTEM', 'S
  *
  * `'sentinel'` was added in the TNA Sentinel v0.1 milestone (Volume 6, section 58: "Ledger Extension
  * Discipline"). `'auditor'` was added in the TNA Auditor v0.1 milestone (Volume 7) on the same
- * discipline. Both are purely additive changes — no existing value was removed or renamed, so every
- * event accepted under the tagged `tna-ledger-v0.1` commit remains valid under this schema. The tag
- * itself is untouched; this file is part of how the branch evolves beyond it.
+ * discipline. `'platform'` was added in the TNA Platform Integration v0.1 milestone (Volume 8) — the
+ * integration layer's own evidence of end-to-end action orchestration, distinct from (and in addition
+ * to) the individual Gate/Sentinel/VAD events it causes. All three are purely additive changes — no
+ * existing value was removed or renamed, so every event accepted under the tagged `tna-ledger-v0.1`
+ * commit remains valid under this schema. The tag itself is untouched; this file is part of how the
+ * branch evolves beyond it.
  */
-export type SourceComponent = 'tna-gate' | 'execution-broker' | 'isolation-runner' | 'vad-engine' | 'human-decision-service' | 'ledger' | 'sentinel' | 'auditor';
-export const SOURCE_COMPONENTS: readonly SourceComponent[] = ['tna-gate', 'execution-broker', 'isolation-runner', 'vad-engine', 'human-decision-service', 'ledger', 'sentinel', 'auditor'];
+export type SourceComponent = 'tna-gate' | 'execution-broker' | 'isolation-runner' | 'vad-engine' | 'human-decision-service' | 'ledger' | 'sentinel' | 'auditor' | 'platform';
+export const SOURCE_COMPONENTS: readonly SourceComponent[] = ['tna-gate', 'execution-broker', 'isolation-runner', 'vad-engine', 'human-decision-service', 'ledger', 'sentinel', 'auditor', 'platform'];
 
 export const EVENT_TYPES = [
   'AGENT_REGISTERED',
@@ -49,6 +52,13 @@ export const EVENT_TYPES = [
   // Added in TNA Auditor v0.1 (Volume 7, section 115-116) — additive only, see SourceComponent above.
   'AUDIT_ASSESSMENT_CREATED', 'AUDIT_ASSESSMENT_STARTED', 'AUDIT_FINDING_CREATED',
   'AUDIT_ASSESSMENT_COMPLETED', 'AUDIT_ASSESSMENT_FAILED',
+  // Added in TNA Platform Integration v0.1 (Volume 8, section 32) — additive only, see SourceComponent
+  // above. Deliberately minimal: only events that add value beyond the underlying Gate/Sentinel/VAD
+  // events they causally follow (no duplicate per-subsystem event is re-emitted under this component).
+  'PLATFORM_ACTION_RECEIVED', 'PLATFORM_ACTION_BLOCKED', 'PLATFORM_ACTION_HELD', 'PLATFORM_ACTION_AUTHORIZED',
+  'PLATFORM_EXECUTION_STARTED', 'PLATFORM_EXECUTION_COMPLETED',
+  'PLATFORM_VERIFICATION_STARTED', 'PLATFORM_VERIFICATION_COMPLETED',
+  'PLATFORM_ACTION_TERMINATED', 'PLATFORM_ACTION_INDETERMINATE', 'PLATFORM_ACTION_COMPLETED', 'PLATFORM_ACTION_FAILED',
 ] as const;
 export type LedgerEventType = typeof EVENT_TYPES[number];
 const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);

@@ -16,7 +16,9 @@
     "demo:sentinel:v01": "npm run build && node dist/scripts/demo-sentinel-v01.js",
     "start:sentinel": "node dist/apps/tna-sentinel/src/main.js",
     "demo:auditor:v01": "npm run build && node dist/scripts/demo-auditor-v01.js",
-    "start:auditor": "node dist/apps/tna-auditor/src/main.js"
+    "start:auditor": "node dist/apps/tna-auditor/src/main.js",
+    "demo:platform:v01": "npm run build && node dist/scripts/demo-platform-v01.js",
+    "start:platform": "node dist/apps/tna-platform/src/main.js"
   },
   "dependencies": {"zod": "4.1.5"},
   "devDependencies": {"typescript": "5.9.2", "@types/node": "24.3.1", "eslint": "9.35.0", "typescript-eslint": "8.42.0", "@eslint/js": "9.35.0"}

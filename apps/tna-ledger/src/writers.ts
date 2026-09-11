@@ -31,3 +31,12 @@ export function auditorLedgerReader(tenantId: string): LedgerPrincipal {
 export function admin(tenantId: string): LedgerPrincipal {
   return adminPrincipal('ledger-admin', tenantId);
 }
+/** Added in TNA Platform Integration v0.1 (Volume 8). Additive only — does not alter any existing
+ * writer/reader/admin. The platform's own end-to-end orchestration evidence (PLATFORM_* events),
+ * distinct from the individual Gate/Sentinel/VAD events it causes. */
+export function platformWriter(tenantId: string): LedgerPrincipal {
+  return writerPrincipal('ledger-writer-platform', tenantId, ['platform']);
+}
+export function platformLedgerReader(tenantId: string): LedgerPrincipal {
+  return readerPrincipal('ledger-reader-platform', tenantId);
+}
