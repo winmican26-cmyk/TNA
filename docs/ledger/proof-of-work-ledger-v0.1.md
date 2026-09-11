@@ -47,8 +47,9 @@ that count).
 ## Files Modified
 
 - `package.json` — added `demo:ledger:v01` and `start:ledger` scripts.
-- `README.md` — added Volume 4 (VAD Engine) and Volume 5 (TNA Ledger, marked "in development") status
-  sections. No prior content removed or reworded.
+- `README.md` — added Volume 4 (VAD Engine) and Volume 5 (TNA Ledger) status sections. Volume 5's
+  status line was later updated, in a documentation-only follow-up commit, from "in development" to
+  reflect its accepted state (see Architectural Acceptance below). No prior content removed.
 
 No file belonging to an accepted milestone was altered in a way that changes its behavior.
 
@@ -367,18 +368,37 @@ boundaries, not silent gaps or failed requirements.
 
 ## Final Git Status
 
-Branch `trust-no-agent-main`, HEAD `fb688024cbc3712cf51432b4a93753ebb8aefa93` (unchanged by this
-milestone). New Ledger files are currently untracked/uncommitted, staged for review. `README.md` and
-`package.json` are modified in place (additive sections/scripts only). No accepted Gate or VAD file
-was deleted or destructively modified; `master` and all four accepted tags
-(`tna-gate-v0.1/v0.2/v0.3`, `vad-engine-v0.1`) are untouched.
+Branch: `trust-no-agent-main`
+
+Accepted implementation commit:
+`203b8fb6febe711f7c1f47fa6af8b542ea7f3185`
+
+Acceptance metadata commit:
+`9d1c417228e5affd787518d3c5ad13bc05d00f85`
+
+Current HEAD:
+`bd3b77b9d84e67e098b58a9873dc9e736c076cbb`
+
+Accepted tag:
+`tna-ledger-v0.1`
+
+Tag target:
+`203b8fb6febe711f7c1f47fa6af8b542ea7f3185`
+
+Working tree:
+clean
+
+No accepted Gate or VAD file was deleted or destructively modified; `master` and all four accepted
+tags (`tna-gate-v0.1/v0.2/v0.3`, `vad-engine-v0.1`) are untouched and unmoved.
 
 ## Recommendation
 
-> **READY FOR ARCHITECTURAL ACCEPTANCE REVIEW**
+> **ARCHITECTURALLY ACCEPTED AS TNA LEDGER v0.1**
+> **WITH DOCUMENTED SCOPE AND LIMITATIONS**
 
-This implementation agent does not declare acceptance, and does not tag `tna-ledger-v0.1`.
-Acceptance belongs to the reviewer.
+This does not mean production certified, externally security audited, tamper-proof, compliance
+certified, or universally secure — see Architectural Acceptance below for the full scope of what
+acceptance does and does not cover.
 
 ## Architectural Acceptance
 
