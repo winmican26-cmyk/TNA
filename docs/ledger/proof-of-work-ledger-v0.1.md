@@ -379,3 +379,55 @@ was deleted or destructively modified; `master` and all four accepted tags
 
 This implementation agent does not declare acceptance, and does not tag `tna-ledger-v0.1`.
 Acceptance belongs to the reviewer.
+
+## Architectural Acceptance
+
+Status:
+ARCHITECTURALLY ACCEPTED AS TNA LEDGER v0.1
+WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+Accepted implementation commit:
+`203b8fb6febe711f7c1f47fa6af8b542ea7f3185`
+
+Accepted tag:
+`tna-ledger-v0.1`
+
+Tag target:
+`203b8fb6febe711f7c1f47fa6af8b542ea7f3185`
+
+Acceptance test baseline:
+250 tests / 250 pass / 0 fail
+
+Repeatability:
+Two consecutive full `npm run check` runs passed with no cleanup between them.
+
+Demo:
+`npm run demo:ledger:v01` — PASS
+
+Mandatory blockers remaining:
+0
+
+### What "architecturally accepted" does and does not mean
+
+`ARCHITECTURALLY ACCEPTED` means the design and implementation satisfy the Volume 5 acceptance gate
+for their stated scope, with the limitations documented in this file and in
+`ledger-requirement-matrix-v0.1.md` / `ledger-threat-model-v0.1.md` understood and accepted.
+
+It does **not** mean any of the following:
+
+- production certified
+- externally security audited
+- tamper-proof
+- compliance certified
+- universally secure
+
+Hash chaining plus durable storage is an integrity-evidence mechanism, not a WORM or
+immutability guarantee against an actor with direct database and application-code control — see the
+threat model's residual-risk section. External anchoring remains future work.
+
+### Tag / HEAD relationship
+
+The `tna-ledger-v0.1` tag points at the accepted implementation snapshot
+(`203b8fb6febe711f7c1f47fa6af8b542ea7f3185`). Recording this acceptance metadata is a separate,
+later documentation commit, so branch `trust-no-agent-main` HEAD is expected to sit one commit ahead
+of the tag. The tag is not moved forward.
