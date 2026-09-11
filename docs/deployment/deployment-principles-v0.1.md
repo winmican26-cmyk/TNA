@@ -1,11 +1,13 @@
-# TNA Principles TNA-51 – TNA-56 (Volume 9 — TNA Deployment Engineering v0.1)
+# TNA Principles TNA-51 – TNA-57 (Volume 9 — TNA Deployment Engineering v0.1)
 
 TNA-01 through TNA-50 are preserved unchanged — TNA-43 through TNA-50 are consolidated in
 `docs/platform/platform-principles-v0.1.md`; earlier ones remain documented inline within their own
 respective volumes' docs. Nothing in this document supersedes or restates them.
 
-The following six principles are established by this milestone's real implementation — each is backed by
-a specific, tested mechanism, not merely asserted.
+The following seven principles are established by this milestone's real implementation — each is backed
+by a specific, tested mechanism, not merely asserted. TNA-51 through TNA-56 were established by the
+original Volume 9 submission; TNA-57 was established by the subsequent Final Recovery-Consistency
+Review closure (see `deployment-v0.1-recovery-consistency-closure.md`).
 
 ## TNA-51 — Secure Code Is Not Secure Deployment
 
@@ -57,3 +59,17 @@ production work; `tna:restore` requires explicit confirmation and still runs thr
 `PlatformStore`/Ledger code paths as ordinary operation, never a privileged bypass; the running-process
 lock and outbox lease recovery mechanisms recover a legitimate owner's work, they do not grant any new
 authority beyond what Volume 8's own accepted CAS/lease model already allowed.
+
+## TNA-57 — A Backup Set Is a Recovery Boundary
+
+Individually consistent component snapshots do not by themselves constitute a coherent system recovery
+point. A deployment backup must be created inside an explicit writer/quiescence boundary and published
+only after the complete set is verified. Established by the Final Recovery-Consistency Review closure:
+`VACUUM INTO` proved each component database file internally consistent, but the original submission's
+backup mechanism had no precondition tying the *set* of files to one coherent moment — a live writer
+could, and in the original demo genuinely did, mutate Platform/Ledger/Sentinel/Gate/Auditor state between
+the first file's snapshot and the last one's. `createBackup()` now refuses outright while the
+deployment's `RUNNING.lock` is live (the writer/quiescence boundary), and publishes its manifest only
+after every snapshot succeeds and is hashed, via an atomic staging-directory rename (the "published only
+after the complete set is verified" half) — proven directly in `deployment-backup-consistency.test.ts`
+and documented in full in `deployment-v0.1-recovery-consistency-closure.md`.
