@@ -98,6 +98,23 @@ residual risk before relying on it. **TNA Auditor evaluates configured controls 
 evidence — it does not certify legal, regulatory, contractual, or industry compliance** (no ISO 27001,
 SOC 2, NIST, EU AI Act, DORA, HIPAA, GDPR, NIS2, or PCI DSS status is claimed).
 
+## Volume 8 status — TNA Platform Integration v0.1 — Architecturally accepted with documented scope and limitations
+
+TNA Platform Integration (`packages/platform-schema`, `platform-outbox`, `platform-connectors`,
+`platform-core`, `apps/tna-platform`) is the end-to-end control plane: one governed
+`PlatformActionRequest` moves through Gate authorization, capability issuance, a Sentinel session and
+mandatory pre-action check, broker-mediated connector execution, optional VAD verification, and
+durable Ledger evidence delivery via a transactional outbox — without the caller manually coordinating
+the five accepted subsystems. It orchestrates; it does not replace any of Gate/VAD/Ledger/Sentinel/
+Auditor's own accepted logic, and Auditor remains strictly post-hoc, never in the critical execution
+path. Run `npm run demo:platform:v01`. See
+[docs/platform/proof-of-work-platform-v0.1.md](docs/platform/proof-of-work-platform-v0.1.md) and
+[docs/platform/platform-threat-model-v0.1.md](docs/platform/platform-threat-model-v0.1.md) for full
+scope and residual risk before relying on it; it does not provide one ACID transaction across the five
+subsystems it coordinates, and cannot universally roll back a connector's non-idempotent side effect
+once performed (see the threat
+model's distributed-transaction and connector-side-effect limitations).
+
 ## Repository
 
 ```text
