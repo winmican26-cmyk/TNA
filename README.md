@@ -81,6 +81,23 @@ and residual risk before relying on it; it cannot observe or contain behavior on
 and a lack of detected violations is not proof that none occurred (see the threat model's
 observability limitation).
 
+## Volume 7 status — TNA Auditor (v0.1 accepted)
+
+TNA Auditor (`packages/auditor-schema`, `auditor-controls`, `auditor-evidence`, `auditor-risk`,
+`auditor-engine`, `auditor-report`, `apps/tna-auditor`) is the governance and control-assessment
+layer: given a bounded scope and evidence cutoff, it collects evidence from TNA Ledger, evaluates a
+27-control catalog against it, and produces a deterministic, hash-verifiable audit package — pass,
+partial, fail, not-applicable, insufficient-evidence, or error per control, never a fabricated pass
+from absent or corrupt evidence. It does not authorize activity (Gate), execute containment
+(Sentinel), rewrite evidence (Ledger), or verify VAD outputs. Run `npm run demo:auditor:v01`. **TNA
+Auditor v0.1 — Architecturally accepted with documented scope and limitations** (tag
+`tna-auditor-v0.1`) — see
+[docs/auditor/proof-of-work-auditor-v0.1.md](docs/auditor/proof-of-work-auditor-v0.1.md) and
+[docs/auditor/auditor-threat-model-v0.1.md](docs/auditor/auditor-threat-model-v0.1.md) for scope and
+residual risk before relying on it. **TNA Auditor evaluates configured controls against available
+evidence — it does not certify legal, regulatory, contractual, or industry compliance** (no ISO 27001,
+SOC 2, NIST, EU AI Act, DORA, HIPAA, GDPR, NIS2, or PCI DSS status is claimed).
+
 ## Repository
 
 ```text
