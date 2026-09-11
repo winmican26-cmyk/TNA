@@ -30,7 +30,7 @@ function ipv4Private(address: string): boolean {
   const value = ipv4Value(address);
   if (value === null) return false;
   const inRange = (start: number, end: number) => value >= start && value <= end;
-  return inRange(0x00000000, 0x00ffffff) || inRange(0x0a000000, 0x0affffff) || inRange(0x64400000, 0x647fffff) || inRange(0x7f000000, 0x7fffffff) || inRange(0xa9fe0000, 0xa9feffff) || inRange(0xac100000, 0xac1fffff) || inRange(0xc0000000, 0xc00000ff) || inRange(0xc6120000, 0xc61200ff) || inRange(0xc6336400, 0xc63364ff) || inRange(0xc0a80000, 0xc0a8ffff) || inRange(0xcb007100, 0xcb0071ff);
+  return inRange(0x00000000, 0x00ffffff) || inRange(0x0a000000, 0x0affffff) || inRange(0x64400000, 0x647fffff) || inRange(0x7f000000, 0x7fffffff) || inRange(0xa9fe0000, 0xa9feffff) || inRange(0xac100000, 0xac1fffff) || inRange(0xc0000000, 0xc00000ff) || inRange(0xc6120000, 0xc613ffff) || inRange(0xc6336400, 0xc63364ff) || inRange(0xc0a80000, 0xc0a8ffff) || inRange(0xcb007100, 0xcb0071ff) || inRange(0xe0000000, 0xefffffff);
 }
 
 function ipv6Words(address: string): number[] | null {
@@ -52,6 +52,25 @@ function ipv6Words(address: string): number[] | null {
   return pieces.length === 2 ? [...left, ...Array.from({ length: 8 - left.length - right.length }, () => 0), ...right] : left;
 }
 
+/**
+ * Classifies an address as non-public (unsuitable for outbound egress).
+ *
+ * Supported classifications:
+ * - IPv4 RFC 1122 "this network" (0.0.0.0/8)
+ * - IPv4 RFC 1918 private (10/8, 172.16/12, 192.168/16)
+ * - IPv4 RFC 6598 shared/CGN (100.64/10)
+ * - IPv4 loopback (127/8), link-local (169.254/16)
+ * - IPv4 RFC 5737 documentation (192.0.0/24, 198.51.100/24, 203.0.113/24)
+ * - IPv4 RFC 2544 benchmark (198.18.0.0/15)
+ * - IPv4 multicast (224.0.0.0/4)
+ * - IPv6 unspecified/loopback (::, ::1), ULA (fc00::/7), link-local (fe80::/10)
+ * - IPv6 multicast (ff00::/8)
+ * - IPv4-mapped IPv6 (::ffff:0:0/96) — delegates to IPv4 classification
+ *
+ * This function does NOT provide universal SSRF prevention. It covers
+ * the address ranges listed above. Additional protections (DNS rebinding,
+ * protocol validation, redirect following) are handled by EgressGuard.
+ */
 export function isPrivateAddress(address: string): boolean {
   if (isIP(address) === 4) return ipv4Private(address);
   if (isIP(address) !== 6) return false;
@@ -59,7 +78,7 @@ export function isPrivateAddress(address: string): boolean {
   if (!words) return true;
   const mapped = words.slice(0, 5).every(word => word === 0) && words[5] === 0xffff;
   if (mapped) return ipv4Private(`${words[6]! >>> 8}.${words[6]! & 255}.${words[7]! >>> 8}.${words[7]! & 255}`);
-  return words[0] === 0 || (words[0]! & 0xfe00) === 0xfc00 || (words[0]! & 0xffc0) === 0xfe80;
+  return words[0] === 0 || (words[0]! & 0xfe00) === 0xfc00 || (words[0]! & 0xffc0) === 0xfe80 || (words[0]! & 0xff00) === 0xff00;
 }
 
 function normalizedHost(host: string): string {

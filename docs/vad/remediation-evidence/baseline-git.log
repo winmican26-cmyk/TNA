@@ -1,0 +1,29 @@
+On branch tna-gate-v0.2
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	apps/vad-engine/
+	docs/audit-evidence-2026-09-10.md
+	docs/audit-gate-probes.mjs
+	docs/audit-probes.mjs
+	docs/project-audit-2026-09-10.md
+	docs/vad/
+	packages/model-adapter/
+	packages/vad-core/
+	packages/vad-runtime/
+	packages/validation-gate/
+	packages/verifier-core/
+	tests/vad/
+
+nothing added to commit but untracked files present (use "git add" to track)
+tna-gate-v0.2
+718a801 TNA Gate v0.3 isolated execution and egress enforcement
+cdb53be Accept TNA Gate v0.2 capability brokerage
+4eca927 Preserve accepted TNA Gate v0.1 baseline and workspace rules
+tna-gate-v0.1
+tna-gate-v0.2
+tna-gate-v0.3
+4eca92790d530af73cd81a329ce8acf7085113f5 refs/tags/tna-gate-v0.1
+4d83bcf5cc853026f8d17171ab4f450d2c86481b refs/tags/tna-gate-v0.2
+cdb53bec97d197214a7ca99a964f5d88324da693 refs/tags/tna-gate-v0.2^{}
+b30c1a93c8fc8b70dde96f8b76e3e085e1a10dce refs/tags/tna-gate-v0.3
+718a801ff9e3085faf4e69d1dbf924a1b6e6c047 refs/tags/tna-gate-v0.3^{}

@@ -1,0 +1,44 @@
+
+> trust-no-agent@0.1.0 build
+> tsc -p tsconfig.json
+
+tests/vad/vad-engine.test.ts(265,52): error TS2783: 'details' is specified more than once, so this usage will be overwritten.
+✔ file evidence store persists final evidence and prevents conflicting finalization (28.1038ms)
+✖ file evidence store retries canonical records without changing generated completion time (17.0852ms)
+✖ file evidence store concurrent identical writers succeed and conflicting writers have one winner (22.1577ms)
+✖ file evidence store safely separates path-like atom identifiers (13.1718ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 1
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 344.1464
+
+✖ failing tests:
+
+test at dist\tests\vad\vad-engine.test.js:226:1
+✖ file evidence store retries canonical records without changing generated completion time (17.0852ms)
+  Error: Conflicting final evidence
+      at FileEvidenceStore.persist (file:///C:/Users/mican/Documents/TNA/dist/packages/vad-runtime/src/index.js:108:23)
+      at async TestContext.<anonymous> (file:///C:/Users/mican/Documents/TNA/dist/tests/vad/vad-engine.test.js:233:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at dist\tests\vad\vad-engine.test.js:237:1
+✖ file evidence store concurrent identical writers succeed and conflicting writers have one winner (22.1577ms)
+  Error: Conflicting final evidence
+      at FileEvidenceStore.persist (file:///C:/Users/mican/Documents/TNA/dist/packages/vad-runtime/src/index.js:108:23)
+      at async Promise.all (index 10)
+      at async TestContext.<anonymous> (file:///C:/Users/mican/Documents/TNA/dist/tests/vad/vad-engine.test.js:240:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at dist\tests\vad\vad-engine.test.js:248:1
+✖ file evidence store safely separates path-like atom identifiers (13.1718ms)
+  Error: Conflicting final evidence
+      at FileEvidenceStore.persist (file:///C:/Users/mican/Documents/TNA/dist/packages/vad-runtime/src/index.js:108:23)
+      at async TestContext.<anonymous> (file:///C:/Users/mican/Documents/TNA/dist/tests/vad/vad-engine.test.js:251:9)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)

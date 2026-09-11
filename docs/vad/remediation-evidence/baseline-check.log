@@ -1,0 +1,174 @@
+
+> trust-no-agent@0.1.0 check
+> npm run typecheck && npm run lint && npm test
+
+
+> trust-no-agent@0.1.0 typecheck
+> tsc --noEmit
+
+
+> trust-no-agent@0.1.0 lint
+> eslint apps packages tests scripts eslint.config.js
+
+
+> trust-no-agent@0.1.0 test
+> npm run build && node --test dist/tests/**/*.test.js
+
+
+> trust-no-agent@0.1.0 build
+> tsc -p tsconfig.json
+
+✔ forbidden shell (6.3497ms)
+✔ unlisted tool (0.4951ms)
+✔ undeclared resource (0.5619ms)
+✔ unknown host (0.3295ms)
+✔ host suffix spoof (0.3418ms)
+✔ objective reinterpretation (0.3204ms)
+✔ self envelope edit (0.9261ms)
+✔ read permission used for write (0.7357ms)
+✔ unknown agent contact (0.6893ms)
+✔ secret access fails closed without broker (0.6968ms)
+✔ blocks file escape "/etc/passwd" (0.9297ms)
+✔ blocks file escape "/workspace/logs/../secrets/key" (0.7739ms)
+✔ blocks file escape "/workspace/logs-evil/file" (0.3081ms)
+✔ blocks file escape "/workspace/logs/%2e%2e/secret" (0.2178ms)
+✔ blocks file escape "/workspace/logs/a\\..\\key" (0.2054ms)
+✔ blocks file escape "/workspace/logs//a" (0.3233ms)
+✔ blocks file escape "/workspace/logs/./a" (0.2632ms)
+✔ blocks file escape "/workspace/logs/file\u0000" (1.2148ms)
+✔ allows canonical file in writable subtree (0.6197ms)
+✔ missing network destination cannot bypass host check (0.7521ms)
+✔ explicit host deny overrides allow; wildcard means deny unlisted (0.2802ms)
+✔ expired at exact expiry boundary (2.877ms)
+✔ revoked identity blocks (0.4171ms)
+✔ missing envelope blocks (0.2921ms)
+✔ cost ceiling holds including reserved spending (0.558ms)
+✔ exact cost ceiling permits (0.2978ms)
+✔ runtime boundary blocks (0.2974ms)
+✔ tool call ceiling blocks (0.3566ms)
+✔ external request ceiling blocks (0.7532ms)
+✔ retry ceiling blocks (0.5675ms)
+✔ listed agent must also be registered (0.3239ms)
+✔ strict envelope accepts the versioned fixture (29.3234ms)
+✔ canonical policy hash ignores object key insertion order (2.0413ms)
+✔ valid request allows deterministically without mutation (1.5791ms)
+✔ absent approval holds (0.6604ms)
+✔ rejects unknown root fields (5.1645ms)
+✔ rejects unknown nested fields (1.9086ms)
+✔ rejects unsupported version (3.9753ms)
+✔ rejects ambiguous or forbidden action bindings (9.4924ms)
+✔ rejects malformed costs and destinations (14.9893ms)
+✔ issues and verifies a canonical single-use capability (25.8455ms)
+✔ rejects token modification and forgery (2.4587ms)
+✔ rejects non-canonical base64url spellings (4.0072ms)
+✔ rejects malformed and unknown-version tokens (2.1299ms)
+✔ validates the minimum secret length (0.6364ms)
+✔ rejects future-issued and overlong capabilities (2.4712ms)
+✔ rejects non-canonical timestamps (1.3891ms)
+✔ rejects expired capabilities and caps requested expiry (1.8173ms)
+✔ enforces the constructor TTL cap and canonicalization (9.8966ms)
+✔ binds every payload field to the MAC (3.841ms)
+✔ does not include the secret in the payload or token (0.867ms)
+✔ canonicalizes case and trailing dots while preserving exact host matching (26.0268ms)
+✔ deny precedence supports exact and wildcard denies (1.0023ms)
+✔ rejects userinfo, unsupported protocols, malformed URLs, and ports (1.2185ms)
+✔ blocks localhost, private IPv4, IPv6, mapped IPv6, and metadata addresses (25.2374ms)
+✔ blocks unknown hosts and DNS answers in private ranges (1.2557ms)
+✔ no-network mode rejects without invoking DNS or fetch (2.3053ms)
+✔ revalidates every redirect and never follows loopback or unauthorized destinations (12.3989ms)
+✔ strips credentials across origins and revalidates the allowed redirect (179.4077ms)
+(node:10224) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ rejects unknown tool and does not invoke an unregistered handler (58.4602ms)
+✔ registry metadata does not expose handlers (2.1255ms)
+✔ concurrent issuance creates one capability and one issued path (15.8008ms)
+✔ refuses BLOCK issuance (2.0008ms)
+✔ refuses HOLD issuance (1.7757ms)
+✔ enforces binding, revocation, stale policy, and replay checks (257.5118ms)
+✔ rejects missing, unknown, substituted, and hash-mismatched tool input (8.5134ms)
+✔ demo writes a deterministic sandbox artifact without secrets (239.2724ms)
+✔ handler failure does not persist sensitive error details (6.2317ms)
+✔ handler failure records FAILED and ten concurrent redemptions invoke once (16.1932ms)
+✔ missing evidence path prevents invocation (3.9665ms)
+✔ execution reads are isolated and transitions are append-only (211.1541ms)
+✔ isolated execution records bounded metadata and never calls the in-process handler (11.618ms)
+✔ isolated execution fails closed without a runner and consumes nothing (5.8863ms)
+✔ isolated child failed is persisted without reviving the broker (9.0205ms)
+✔ isolated child terminated is persisted without reviving the broker (7.1996ms)
+(node:8236) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ Vol 1 authorization routes remain usable and Vol 2 workflow issues and redeems a capability (530.4568ms)
+✔ capability issuance and redemption fail closed for invalid state and replay (294.6326ms)
+✔ API rejects tool input substitution and missing or mismatched hashes (68.0403ms)
+✔ expired envelopes block capability issuance and redemption (56.1745ms)
+✔ revoked and stale-policy capabilities cannot redeem, and execution reads are isolated (87.3919ms)
+✔ missing broker fails closed while authorization remains available (47.5283ms)
+(node:7220) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ v0.3 API executes the registered demo only in a child and exposes bounded isolation evidence (504.4771ms)
+(node:22292) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ HTTP workflow: HOLD, approval, ALLOW, evidence retrieval, revocation (329.46ms)
+✔ governed agent cannot modify envelope, register identities, approve or revoke (74.8139ms)
+✔ agent identity and decision reads are isolated (54.9634ms)
+✔ approval roles cannot be forged or replaced by administrator (46.1777ms)
+✔ approval is single-use even under concurrent requests (100.9604ms)
+✔ approval binds exact resource, cost, destination and envelope issuance (64.3177ms)
+✔ expired approvals hold and expired envelopes block (46.7371ms)
+✔ concurrent spending cannot exceed budget; policy replacement preserves counters (87.3893ms)
+✔ malformed requests, unknown fields and missing credentials fail closed (56.1472ms)
+✔ credential separation rejects short and duplicate credentials (2.3212ms)
+✔ passes only the explicit environment allowlist and safe fixed values (359.6578ms)
+✔ rejects unsafe cwd forms before spawn (6.1565ms)
+✔ rejects a symlink escape when the platform permits symlink creation (15.1794ms)
+✔ treats shell metacharacters as an argument, never as shell syntax (246.1428ms)
+✔ returns FAILED for non-zero exit and child errors (208.2881ms)
+✔ terminates on runtime and output limits, with bounded previews (1772.6803ms)
+✔ reports network as unenforced and rejects strict network mode (147.5355ms)
+✔ does not leave the timed-out child alive (810.399ms)
+✔ does not leave a descendant alive after timeout or output termination (1441.0419ms)
+✔ strictly validates demo deploy input and rejects executable selection (11.4519ms)
+✔ canonicalizes key order and binds the exact validated input (39.1033ms)
+✔ rejects malformed, oversized, and unknown tool input (2.2828ms)
+✔ registry metadata is server-owned and contains no executable handler (0.9012ms)
+✔ input_hash is MAC-bound and substitution cannot verify (11.677ms)
+✔ capability tokens without input_hash fail verification (2.0759ms)
+✔ atom spec rejects unsupported version (6.5054ms)
+✔ canonical spec hash ignores insertion order (7.0072ms)
+✔ resource manifest detects undeclared file changes (0.8451ms)
+✔ validation gate accepts deterministic evidence and rejects false self-claims (0.9855ms)
+✔ retry context excludes prior producer conversation history (3.5815ms)
+✔ verifier rejects invented criteria and missing criteria (1.7314ms)
+✔ accepted demo atom completes the VAD flow (1.0758ms)
+✔ lifecycle rejects illegal terminal transitions and records legal history (1.1001ms)
+✔ runtime budget makes attempt four impossible and enforces cost and runtime (1.6022ms)
+✔ strict verifier parser rejects malformed output and unmet acceptance (3.0744ms)
+✔ human override requires an auditable decision and preserves the spec hash (1.3244ms)
+✔ acceptance requires persisted evidence and rejects integrity mismatches (4.7755ms)
+✖ file evidence store persists final evidence and prevents conflicting finalization (80.84ms)
+✔ accepted Level 2 flow persists evidence before entering ACCEPTED (6.6159ms)
+✔ rejected and exhausted flows persist evidence and close safely (2.953ms)
+✔ active execution registry rejects duplicate runs (0.7662ms)
+(node:16884) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ every ALLOW/BLOCK/HOLD persists complete decision evidence (92.5968ms)
+✔ evidence write failure rolls back decision and budget reservations (8.0625ms)
+✔ state, revocation and evidence persist across restart; tampering is detected (100.0976ms)
+ℹ tests 126
+ℹ suites 0
+ℹ pass 125
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5490.3259
+
+✖ failing tests:
+
+test at dist\tests\vad\vad-engine.test.js:203:1
+✖ file evidence store persists final evidence and prevents conflicting finalization (80.84ms)
+  Error: Conflicting final evidence
+      at FileEvidenceStore.persist (file:///C:/Users/mican/Documents/TNA/dist/packages/vad-runtime/src/index.js:108:23)
+      at async TestContext.<anonymous> (file:///C:/Users/mican/Documents/TNA/dist/tests/vad/vad-engine.test.js:212:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)

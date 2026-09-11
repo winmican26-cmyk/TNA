@@ -34,10 +34,10 @@ export class ToolRegistry {
 
 export type SecretLease = { readonly name: string; readonly value: string; release?(): void };
 export interface SecretBroker { lease(names: readonly string[], context: { agentId: string; executionId: string }): SecretLease[] | Promise<SecretLease[]>; }
-export type BrokerOptions = { now?: () => number; secretBroker?: SecretBroker; isolationRunner?: IsolationRunner; isAgentRevoked?: (agentId: string) => boolean; isPolicyCurrent?: (decision: Decision) => boolean; isDecisionCurrent?: (decision: Decision) => boolean; isToolCompatible?: (decision: Decision, tool: ToolDefinition) => boolean };
+export type BrokerOptions = { now?: () => number; secretBroker?: SecretBroker; isolationRunner?: IsolationRunner; isAgentRevoked?: (agentId: string) => boolean; isPolicyCurrent?: (decision: Decision) => boolean; isDecisionCurrent?: (decision: Decision) => boolean; isToolCompatible?: (decision: Decision, tool: ToolDefinition) => boolean; isAuthorityValid?: (decision: Decision) => boolean; earliestAuthorityExpiry?: (decision: Decision) => number | null };
 type CapabilityRecord = { capability: CapabilityPayload; token: string; consumed: boolean };
 type DecisionPolicy = { policyHash: string; policyRevision: string };
-export type ExecutionState = 'REQUESTED' | 'AUTHORIZED' | 'CAPABILITY_ISSUED' | 'STARTED' | 'SUCCEEDED' | 'FAILED' | 'TERMINATED' | 'BLOCKED';
+export type ExecutionState = 'REQUESTED' | 'AUTHORIZED' | 'CAPABILITY_ISSUED' | 'STARTED' | 'SUCCEEDED' | 'FAILED' | 'TERMINATED' | 'BLOCKED' | 'INDETERMINATE';
 export type IsolationEvidence = { runner_type: string; runner_version: string; workspace_id: string; network: { requested: boolean; mode: string; enforcement: string }; runtime_limit_ms: number; exit_code: number | null; termination_reason?: string; stdout_bytes: number; stdout_sha256: string; stderr_bytes: number; stderr_sha256: string; input_hash: string };
 export type ExecutionSummary = { execution_id: string; timestamp: string; agent_id: string; decision_id: string; capability_id: string; state: ExecutionState; reason: string; result_hash?: string; input_hash?: string; isolation?: IsolationEvidence };
 export type RedeemInput = { token: string; tool: string; resource: string; operation: string; destination?: string; input: unknown; input_hash: string };
@@ -59,15 +59,19 @@ export class ExecutionBroker {
     if (this.options.isAgentRevoked?.(decision.agentId)) block('Agent is revoked');
     if (this.options.isDecisionCurrent && !this.options.isDecisionCurrent(decision)) block('Decision is stale');
     if (this.options.isPolicyCurrent && !this.options.isPolicyCurrent(decision)) block('Policy is stale');
+    if (this.options.isAuthorityValid && !this.options.isAuthorityValid(decision)) block('Authority is no longer valid');
     if (!tool) block('Tool is unregistered or incompatible');
     const registeredTool = tool as ToolDefinition;
     if (!this.compatible(decision, registeredTool)) block('Tool is unregistered or incompatible');
     const parsedInput = this.parseDecisionInput(decision, registeredTool, block);
+    // Cap capability TTL to the earliest authority expiry (defense in depth).
+    const authorityExpiry = this.options.earliestAuthorityExpiry?.(decision) ?? null;
+    const expiresAt = authorityExpiry !== null ? new Date(authorityExpiry).toISOString() : undefined;
     return this.store.transaction(() => {
       if (this.store.list<CapabilityRecord>('execution.capability').some(record => record.capability.decision_id === decisionId)) throw new BrokerError(409, 'Capability already issued for decision');
       const executionId = randomUUID();
       const policy = this.store.get<DecisionPolicy>('decision.policy', decision.decisionId);
-      const input: CapabilityInput = { capability_id: randomUUID(), execution_id: executionId, agent_id: decision.agentId, decision_id: decision.decisionId, action: decision.request.action, tool: decision.request.tool, resource: decision.request.resource, operation: this.operation(decision.request), destination: decision.request.destination ?? null, policy_hash: decision.policyHash ?? 'none', policy_issuance_id: decision.policyHash ?? 'none', input_hash: parsedInput?.input_hash ?? hash(null) };
+      const input: CapabilityInput = { capability_id: randomUUID(), execution_id: executionId, agent_id: decision.agentId, decision_id: decision.decisionId, action: decision.request.action, tool: decision.request.tool, resource: decision.request.resource, operation: this.operation(decision.request), destination: decision.request.destination ?? null, policy_hash: decision.policyHash ?? 'none', policy_issuance_id: decision.policyHash ?? 'none', input_hash: parsedInput?.input_hash ?? hash(null), ...(expiresAt !== undefined ? { expires_at: expiresAt } : {}) };
       input.policy_issuance_id = policy?.policyRevision ?? input.policy_issuance_id;
       const issued = this.codec.issue(input);
       this.appendTransition(issued.payload, 'REQUESTED', 'Execution requested');
@@ -89,6 +93,7 @@ export class ExecutionBroker {
     if (this.options.isAgentRevoked?.(payload.agent_id)) return this.block(payload, 'Agent is revoked');
     if (this.options.isDecisionCurrent && !this.options.isDecisionCurrent(decision)) return this.block(payload, 'Decision is stale');
     if (this.options.isPolicyCurrent && !this.options.isPolicyCurrent(decision)) return this.block(payload, 'Policy is stale');
+    if (this.options.isAuthorityValid && !this.options.isAuthorityValid(decision)) return this.block(payload, 'Authority is no longer valid');
     if (tool.credentialsRequired.length > 0 && !this.options.secretBroker) return this.block(payload, 'Required secret broker is unavailable');
     if (tool.isolated && !this.options.isolationRunner) throw new BrokerError(503, 'Isolation runner unavailable');
     this.store.transaction(() => {
@@ -99,8 +104,19 @@ export class ExecutionBroker {
       this.store.put('execution', payload.execution_id, this.summary(payload, 'STARTED', 'Capability consumed; handler invocation authorized'));
     });
     let leases: SecretLease[] = [];
+    let handlerCompleted = false;
     try {
-      if (tool.credentialsRequired.length > 0) leases = await this.options.secretBroker!.lease(tool.credentialsRequired, { agentId: payload.agent_id, executionId: payload.execution_id });
+      if (tool.credentialsRequired.length > 0) {
+        leases = await this.options.secretBroker!.lease(tool.credentialsRequired, { agentId: payload.agent_id, executionId: payload.execution_id });
+        // G2: Validate credential leases cover all required credentials
+        const leased = new Set(leases.map(l => l.name));
+        for (const req of tool.credentialsRequired) { if (!leased.has(req)) this.block(payload, `Missing credential lease: ${req}`); }
+        // G2: Pre-invocation rechecks after async resource acquisition
+        if (this.options.isAgentRevoked?.(payload.agent_id)) this.block(payload, 'Agent revoked during pre-invocation recheck');
+        if (this.options.isPolicyCurrent && !this.options.isPolicyCurrent(decision)) this.block(payload, 'Policy stale during pre-invocation recheck');
+        if (this.options.isAuthorityValid && !this.options.isAuthorityValid(decision)) this.block(payload, 'Authority invalid during pre-invocation recheck');
+        if (Date.parse(payload.expires_at) <= this.now()) this.block(payload, 'Capability expired during pre-invocation recheck');
+      }
       const context = { executionId: payload.execution_id, agentId: payload.agent_id, decisionId: payload.decision_id, resource: payload.resource, operation: payload.operation, destination: payload.destination, input: parsedInput?.input ?? {} };
       if (tool.isolated) {
         const request = tool.isolated.createRequest({ ...context, inputHash: input.input_hash });
@@ -114,11 +130,16 @@ export class ExecutionBroker {
       }
       if (!tool.handler) throw new BrokerError(503, 'Tool handler unavailable');
       const result = await tool.handler(context);
+      handlerCompleted = true;
       const resultHash = hash(result);
       this.finish(payload, 'SUCCEEDED', 'Handler completed', resultHash);
       return { executionId: payload.execution_id, state: 'SUCCEEDED', result: { hash: resultHash } };
     } catch (error) {
       if (error instanceof BrokerError && (error.message === 'Isolated execution failed' || error.message === 'Isolated execution terminated')) throw error;
+      // G2: Pre-invocation recheck blocks must propagate without recording FAILED
+      if (error instanceof BrokerError && error.status === 403) throw error;
+      // G3: Handler already completed — never record FAILED for a successful side-effect
+      if (handlerCompleted) { try { this.finish(payload, 'INDETERMINATE', 'Handler completed; evidence persistence failed'); } catch { /* best-effort: store may be unavailable */ } throw new BrokerError(503, 'Evidence persistence failed after successful handler execution'); }
       const resultHash = this.handlerResultHash(error);
       try { this.finish(payload, 'FAILED', 'Protected handler failed', resultHash); } catch { throw new BrokerError(503, 'Execution outcome is indeterminate; capability remains consumed'); }
       throw new BrokerError(500, 'Handler failed');
@@ -150,7 +171,7 @@ export class ExecutionBroker {
   private appendTransition(payload: Pick<CapabilityPayload, 'execution_id' | 'capability_id' | 'agent_id' | 'decision_id'>, state: ExecutionState, reason: string): void { this.store.append({ type: 'execution.transition', ...this.transition(payload, state, reason) }); }
   private transition(payload: Pick<CapabilityPayload, 'execution_id' | 'capability_id' | 'agent_id' | 'decision_id'>, state: ExecutionState, reason: string, isolation?: IsolationEvidence): Record<string, unknown> { return { execution_id: payload.execution_id, timestamp: iso(this.now()), agent_id: payload.agent_id, decision_id: payload.decision_id, capability_id: payload.capability_id, state, reason, ...(isolation ? { isolation } : {}) }; }
   private summary(payload: CapabilityPayload, state: ExecutionState, reason: string, resultHash?: string, isolation?: IsolationEvidence): ExecutionSummary { return { ...this.transition(payload, state, reason, isolation), ...(resultHash ? { result_hash: resultHash } : {}), input_hash: payload.input_hash, ...(isolation ? { isolation } : {}) } as ExecutionSummary; }
-  private finish(payload: CapabilityPayload, state: 'SUCCEEDED' | 'FAILED' | 'TERMINATED', reason: string, resultHash?: string, isolation?: IsolationEvidence): void { this.store.transaction(() => { this.store.append({ type: 'execution.transition', ...this.transition(payload, state, reason, isolation) }); this.store.put('execution', payload.execution_id, this.summary(payload, state, reason, resultHash, isolation)); }); }
+  private finish(payload: CapabilityPayload, state: 'SUCCEEDED' | 'FAILED' | 'TERMINATED' | 'BLOCKED' | 'INDETERMINATE', reason: string, resultHash?: string, isolation?: IsolationEvidence): void { this.store.transaction(() => { this.store.append({ type: 'execution.transition', ...this.transition(payload, state, reason, isolation) }); this.store.put('execution', payload.execution_id, this.summary(payload, state, reason, resultHash, isolation)); }); }
   private isolationEvidence(adapter: IsolatedToolAdapter, request: IsolatedExecutionRequest, result: IsolatedExecutionResult, inputHash: string): IsolationEvidence { return { runner_type: adapter.runnerType, runner_version: adapter.runnerVersion, workspace_id: resolve(request.workspace).split(/[\\/]/).pop() ?? 'unknown', network: result.network, runtime_limit_ms: request.runtime_limit_ms, exit_code: result.exit_code, ...(result.state === 'TERMINATED' ? { termination_reason: result.reason } : {}), stdout_bytes: result.stdout.bytes, stdout_sha256: result.stdout.sha256, stderr_bytes: result.stderr.bytes, stderr_sha256: result.stderr.sha256, input_hash: inputHash }; }
   private handlerResultHash(error: unknown): string | undefined {
     if (error === null || typeof error !== 'object') return undefined;
