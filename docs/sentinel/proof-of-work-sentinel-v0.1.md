@@ -526,3 +526,99 @@ This implementation agent does not declare acceptance, and does not tag `tna-sen
 Acceptance belongs to the reviewer. This recommendation now stands on the original 392-test proof
 *plus* the architectural review *plus* the concurrency closure pass — see
 `sentinel-v0.1-concurrency-closure.md` for the closure's own independent scorecard.
+
+## Architectural Acceptance
+
+Status:
+ARCHITECTURALLY ACCEPTED AS TNA SENTINEL v0.1
+WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+Accepted implementation commit:
+`eda35ecb14ee6c9e9f13112339cda6648cf92303`
+
+Accepted tag:
+`tna-sentinel-v0.1`
+
+Tag target:
+`eda35ecb14ee6c9e9f13112339cda6648cf92303`
+
+Acceptance test baseline:
+406 tests / 406 pass / 0 fail
+
+Repeatability:
+Two consecutive full `npm run check` runs passed, no cleanup between them.
+
+Demo:
+`npm run demo:sentinel:v01` — PASS
+
+Mandatory blockers remaining:
+0
+
+### The full history this acceptance rests on
+
+Recorded in full rather than summarized away — this is the strongest evidence trail of any milestone
+in the platform so far, precisely because a real gap was found and closed before acceptance rather
+than never surfacing at all:
+
+```
+392/392 initially passed
+        ↓
+architectural review found mixed HOLD/TERMINATE race
+        ↓
+race reproduced independently
+        ↓
+durable CAS/state-version fix implemented
+        ↓
+14 permanent race tests added
+        ↓
+406/406
+        ↓
+architectural acceptance
+```
+
+Nothing in this chain is deleted or retracted. `sentinel-v0.1-architectural-review-v1.md` stands
+exactly as originally written, including its finding. This document's own "TERMINATE" and
+"Concurrency" sections above carry inline correction notes rather than edited claims.
+`sentinel-v0.1-concurrency-closure.md` is the closure record. All three documents are accepted
+together as part of this milestone's evidence.
+
+### What "architecturally accepted" does and does not mean
+
+`ARCHITECTURALLY ACCEPTED` means the design and implementation satisfy the Volume 6 acceptance gate
+for their stated scope, with the limitations documented in this file, `sentinel-requirement-matrix-
+v0.1.md`, and `sentinel-threat-model-v0.1.md` understood and accepted.
+
+It does **not** mean any of the following:
+
+- production certified
+- externally security audited
+- host-compromise resistant
+- kernel-isolated
+- full network enforcement
+- tamper-proof
+- compliance certified
+- universally secure
+
+TNA Sentinel v0.1 remains what it was designed to be: an application-level deterministic runtime
+control system. It observes what bound, trusted sources report to it and acts through a narrow
+containment interface; it does not replace kernel-level enforcement, a SIEM/EDR, or a security audit.
+The observability limitation (`MISSING_EVENT ≠ SAFE_EVENT`, sections 114-115), the compromised-host and
+compromised-Sentinel-process limitations, and the DNS-rebinding limitation are all still exactly what
+`sentinel-threat-model-v0.1.md` says they are — acceptance does not diminish any of them.
+
+### Tag / HEAD relationship
+
+The `tna-sentinel-v0.1` tag points at the accepted implementation snapshot
+(`eda35ecb14ee6c9e9f13112339cda6648cf92303`). Recording this acceptance metadata is a separate, later
+documentation commit, so branch `trust-no-agent-main` HEAD is expected to sit one or more commits ahead
+of the tag once that commit (and the following README status update) lands. The tag is not moved
+forward.
+
+### Prior accepted tags — unchanged
+
+`tna-gate-v0.1` (`4eca92790d530af73cd81a329ce8acf7085113f5`), `tna-gate-v0.2`
+(`cdb53bec97d197214a7ca99a964f5d88324da693`), `tna-gate-v0.3`
+(`718a801ff9e3085faf4e69d1dbf924a1b6e6c047`), `vad-engine-v0.1`
+(`0667484cd6c63aef2be81ad85479a91c2bed631a`), and `tna-ledger-v0.1`
+(`203b8fb6febe711f7c1f47fa6af8b542ea7f3185`) were all verified to point at their original commits
+immediately before `tna-sentinel-v0.1` was created. None were moved.
