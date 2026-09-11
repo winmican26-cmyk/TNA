@@ -209,7 +209,15 @@ npm run check → 163 tests, 163 pass, 0 fail
 
 ## Final Git Status
 
-All changes are uncommitted VAD remediation and closure additions. No Gate baseline files were deleted or destructively modified. The accepted Gate v0.3 tag remains intact.
+VAD remediation and closure additions have been committed to `tna-gate-v0.2`. No Gate baseline files were deleted or destructively modified. The accepted Gate v0.3 tag remains intact.
+
+```
+Commit:  VAD Engine v0.1 accepted implementation
+SHA:     0667484cd6c63aef2be81ad85479a91c2bed631a
+Tag:     vad-engine-v0.1 -> 0667484cd6c63aef2be81ad85479a91c2bed631a
+Branch:  tna-gate-v0.2
+Status:  working tree clean
+```
 
 ---
 
