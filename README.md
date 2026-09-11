@@ -65,7 +65,7 @@ and [docs/ledger/ledger-threat-model-v0.1.md](docs/ledger/ledger-threat-model-v0
 residual risk before relying on it; hash chaining is not a tamper-proof or WORM claim (see the
 threat model's residual-risk section).
 
-## Volume 6 status — TNA Sentinel (v0.1 in development)
+## Volume 6 status — TNA Sentinel (v0.1 accepted)
 
 TNA Sentinel (`packages/sentinel-schema`, `sentinel-policy`, `sentinel-signals`, `sentinel-engine`,
 `sentinel-runtime`, `apps/tna-sentinel`) is the runtime behavioral defense and containment layer: it
@@ -73,11 +73,13 @@ continuously asks whether an already-authorized activity's observed behavior —
 resource, destination, cost, runtime, and authority state — remains within the bounds that made
 authorizing it acceptable, and can HOLD or TERMINATE it when it drifts. It does not decide whether an
 action may begin (Gate) or whether produced work is correct (VAD); it records its own evidence into
-TNA Ledger through a dedicated adapter. Run `npm run demo:sentinel:v01`. **Not yet accepted** — see
+TNA Ledger through a dedicated adapter. Run `npm run demo:sentinel:v01`. **TNA Sentinel v0.1 —
+Architecturally accepted with documented scope and limitations** (tag `tna-sentinel-v0.1`) — see
 [docs/sentinel/proof-of-work-sentinel-v0.1.md](docs/sentinel/proof-of-work-sentinel-v0.1.md) and
-[docs/sentinel/sentinel-threat-model-v0.1.md](docs/sentinel/sentinel-threat-model-v0.1.md) before
-relying on it; it cannot observe or contain behavior on a compromised host, and a lack of detected
-violations is not proof that none occurred (see the threat model's observability limitation).
+[docs/sentinel/sentinel-threat-model-v0.1.md](docs/sentinel/sentinel-threat-model-v0.1.md) for scope
+and residual risk before relying on it; it cannot observe or contain behavior on a compromised host,
+and a lack of detected violations is not proof that none occurred (see the threat model's
+observability limitation).
 
 ## Repository
 
