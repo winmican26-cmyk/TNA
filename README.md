@@ -43,6 +43,27 @@ npm start
 
 The API listens at `http://127.0.0.1:4317`. Set `PORT` to override it. SQLite state lives in `data/tna.sqlite`, with WAL sidecar files. Keep control-plane credentials stable across restarts using your environment's secret storage; the commands above are for local development. Never give administrator or approver credentials to governed agents.
 
+## Volume 4 status — VAD Engine
+
+VAD Engine v0.1 (`packages/vad-core`, `vad-runtime`, `validation-gate`, `verifier-core`,
+`model-adapter`, `apps/vad-engine`) implements deterministic atom specs, a runtime-owned attempt/cost/
+clock budget, an independent verifier, and auditable human-decision override. Run
+`npm run demo:vad:v01`. See [docs/vad/](docs/vad/) for the requirement matrix, threat model, and
+proof-of-work.
+
+## Volume 5 status — TNA Ledger (v0.1 in development)
+
+TNA Ledger (`packages/ledger-schema`, `ledger-core`, `ledger-store`, `ledger-integrity`,
+`ledger-query`, `apps/tna-ledger`) is the machine-action provenance and evidence subsystem: a
+strict, versioned event schema; per-stream hash chaining with monotonic sequencing; tenant
+isolation; orphan/invariant rejection (no `CAPABILITY_REDEEMED` without a prior `CAPABILITY_ISSUED`,
+etc.); Gate and VAD reconstruction from evidence alone; and portable, independently-verifiable JSON
+export. It records evidence — it does not authorize (Gate) or verify correctness (VAD). Run
+`npm run demo:ledger:v01`. **Not yet accepted** — see [docs/ledger/proof-of-work-ledger-v0.1.md](docs/ledger/proof-of-work-ledger-v0.1.md)
+and [docs/ledger/ledger-threat-model-v0.1.md](docs/ledger/ledger-threat-model-v0.1.md) before relying
+on it; hash chaining is not a tamper-proof or WORM claim (see the threat model's residual-risk
+section).
+
 ## Repository
 
 ```text
