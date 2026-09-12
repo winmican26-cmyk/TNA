@@ -160,7 +160,7 @@ v0.1 deployment baseline; and no SaaS hosting layer, billing, customer frontend,
 Kubernetes/multi-region infrastructure, or regulatory certification of any kind is claimed (see the
 proof-of-work's "Architectural Acceptance" section for the complete list).
 
-## Volume 11 status — TNA Operator Readiness & Deployment Academy v0.1 — candidate implementation, pending architectural acceptance
+## Volume 11 status — TNA Operator Readiness & Deployment Academy v0.1 — Architecturally accepted with documented scope and limitations
 
 TNA Operator Readiness & Deployment Academy (`apps/tna-operator`, `academy/`) asks whether TNA can be
 deployed, operated, diagnosed, and handed over by someone who did not build it. It adds a real operator
@@ -173,10 +173,13 @@ assessments. Run `npm run demo:operator:v01`, `npm run smoke:operator:v01`, and
 `npm run demo:academy:v01` (a genuine fresh-learner golden path through all 4 levels). See
 [docs/operator/proof-of-work-operator-v0.1.md](docs/operator/proof-of-work-operator-v0.1.md) and
 [docs/operator/operator-requirement-matrix-v0.1.md](docs/operator/operator-requirement-matrix-v0.1.md)
-for full scope and residual risk. **TNA Operator Readiness & Deployment Academy v0.1 — candidate
-implementation, pending architectural acceptance review.** It is not yet tagged. Remaining honest gaps
-(long-form narrative lesson prose per curriculum topic, a handful of Volume 11-only edge cases) are listed
-in the proof-of-work's "Remaining Limitations" — none of them are mandatory-gate items.
+for full scope and residual risk. **TNA Operator Readiness & Deployment Academy v0.1 — Architecturally
+accepted with documented scope and limitations** (tag `tna-operator-academy-v0.1`). Academy completion is
+not professional certification and grants no production authority (TNA-69); the operator CLI is not a
+SaaS admin portal and includes no billing, enterprise IAM/SSO/SCIM, or Kubernetes/multi-region operations
+layer. Remaining honest gaps (long-form narrative lesson prose per curriculum topic, a handful of
+Volume 11-only edge cases) are listed in the proof-of-work's "Remaining Limitations" — none of them are
+mandatory-gate items.
 
 ## Repository
 
