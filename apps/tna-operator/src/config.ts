@@ -19,6 +19,8 @@ export interface OperatorProfile {
   readonly platformTokenEnv?: string | undefined;
   readonly clientGatewayUrl?: string | undefined;
   readonly clientGatewayAdminTokenEnv?: string | undefined;
+  readonly improvementGovernorUrl?: string | undefined;
+  readonly improvementGovernorTokenEnv?: string | undefined;
 }
 
 export class OperatorConfigError extends Error {
@@ -57,13 +59,17 @@ export function loadOperatorProfile(profileName: string, env: NodeJS.ProcessEnv 
   const devMode = obj.devMode === true;
   const platformUrl = typeof obj.platformUrl === 'string' ? obj.platformUrl : undefined;
   const clientGatewayUrl = typeof obj.clientGatewayUrl === 'string' ? obj.clientGatewayUrl : undefined;
+  const improvementGovernorUrl = typeof obj.improvementGovernorUrl === 'string' ? obj.improvementGovernorUrl : undefined;
   if (platformUrl) assertEndpointSecurity(`${profileName}.platformUrl`, platformUrl, devMode);
   if (clientGatewayUrl) assertEndpointSecurity(`${profileName}.clientGatewayUrl`, clientGatewayUrl, devMode);
+  if (improvementGovernorUrl) assertEndpointSecurity(`${profileName}.improvementGovernorUrl`, improvementGovernorUrl, devMode);
   return {
     name: profileName, role: obj.role, devMode, platformUrl,
     platformTokenEnv: typeof obj.platformTokenEnv === 'string' ? obj.platformTokenEnv : undefined,
     clientGatewayUrl,
     clientGatewayAdminTokenEnv: typeof obj.clientGatewayAdminTokenEnv === 'string' ? obj.clientGatewayAdminTokenEnv : undefined,
+    improvementGovernorUrl,
+    improvementGovernorTokenEnv: typeof obj.improvementGovernorTokenEnv === 'string' ? obj.improvementGovernorTokenEnv : undefined,
   };
 }
 

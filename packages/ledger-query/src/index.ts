@@ -171,6 +171,79 @@ export function reconstructVadAtom(store: LedgerStore, tenantId: string, correla
   };
 }
 
+/**
+ * Added in TNA Recursive Improvement Governance v0.1 (Volume 12, section F-G) — additive only, mirrors
+ * `reconstructGateAction`/`reconstructVadAtom` above exactly. Reconstructs ONE generation's real history
+ * from its own Ledger stream (`improvement:<generation_id>`) alone — never from `ImprovementStore`.
+ */
+export interface ImprovementGenerationReconstruction {
+  correlationId: string;
+  generationId: string;
+  parentGenerationId: string | null;
+  truncated: boolean;
+  proposed: boolean;
+  authorized: boolean;
+  built: boolean;
+  /** The raw payload of the last IMPROVEMENT_EVALUATED event, or null if none was recorded — exposed
+   * raw (not narrowed to one field) so a consumer like an assessment/audit function can read whichever
+   * evaluation-evidence fields the governor actually recorded (e.g. `control_plane_changed`,
+   * `evaluator_changed`, `test_tampered`, `authority_within_ceiling`) without this reconstruction
+   * function needing to know about every one of them in advance. */
+  evaluated: Record<string, unknown> | null;
+  capabilityDeltaDetected: boolean;
+  /** The raw payload of the last CAPABILITY_DELTA_DETECTED event, or null if none was recorded. */
+  capabilityDelta: Record<string, unknown> | null;
+  authorityExpansion: { status: string } | null;
+  finalState: string;
+  evidence: EvidenceRef[];
+}
+const IMPROVEMENT_FINAL_EVENT_TYPES = ['IMPROVEMENT_PROMOTED', 'IMPROVEMENT_REJECTED', 'IMPROVEMENT_ROLLED_BACK', 'IMPROVEMENT_INDETERMINATE', 'RECURSION_BUDGET_EXHAUSTED'];
+const IMPROVEMENT_EXPANSION_EVENT_TYPES = ['AUTHORITY_EXPANSION_REQUESTED', 'AUTHORITY_EXPANSION_APPROVED', 'AUTHORITY_EXPANSION_REJECTED'];
+
+export function reconstructImprovementGeneration(store: LedgerStore, tenantId: string, generationId: string): ImprovementGenerationReconstruction {
+  const rows = store.query(tenantId, { streamId: `improvement:${generationId}` }, MAX_RECONSTRUCTION_EVENTS + 1);
+  const truncated = rows.length > MAX_RECONSTRUCTION_EVENTS;
+  const events = truncated ? rows.slice(0, MAX_RECONSTRUCTION_EVENTS) : rows;
+  const proposed = events.find(e => e.event_type === 'IMPROVEMENT_PROPOSED');
+  const authorized = events.some(e => e.event_type === 'IMPROVEMENT_AUTHORIZED');
+  const built = events.some(e => e.event_type === 'IMPROVEMENT_BUILT');
+  const evaluatedEvent = [...events].reverse().find(e => e.event_type === 'IMPROVEMENT_EVALUATED');
+  const capabilityDeltaEvent = [...events].reverse().find(e => e.event_type === 'CAPABILITY_DELTA_DETECTED');
+  const expansionEvent = [...events].reverse().find(e => IMPROVEMENT_EXPANSION_EVENT_TYPES.includes(e.event_type));
+  const finalEvent = [...events].reverse().find(e => IMPROVEMENT_FINAL_EVENT_TYPES.includes(e.event_type));
+  const parentGenerationId = (proposed?.payload?.parent_generation_id as string | null | undefined) ?? null;
+  return {
+    correlationId: events[0]?.correlation_id ?? generationId, generationId, parentGenerationId, truncated,
+    proposed: proposed !== undefined, authorized, built,
+    evaluated: evaluatedEvent?.payload ?? null,
+    capabilityDeltaDetected: capabilityDeltaEvent !== undefined,
+    capabilityDelta: capabilityDeltaEvent?.payload ?? null,
+    authorityExpansion: expansionEvent ? { status: expansionEvent.event_type.replace('AUTHORITY_EXPANSION_', '') } : null,
+    finalState: finalEvent ? finalEvent.event_type.replace('IMPROVEMENT_', '').replace('RECURSION_BUDGET_EXHAUSTED', 'BUDGET_EXHAUSTED') : 'UNKNOWN',
+    evidence: events.map(evidenceRef),
+  };
+}
+
+export interface ImprovementLineageNode { generationId: string; parentGenerationId: string | null; finalState: string }
+export interface ImprovementLineageReconstruction { nodes: ImprovementLineageNode[]; roots: string[] }
+
+/**
+ * Section G: "the store alone is not sufficient proof — Ledger must preserve the security history."
+ * Reconstructs the lineage tree for a KNOWN set of generation ids (the caller's own record of which
+ * generations it created — Ledger has no cross-stream "find all children of X" index, so unbounded
+ * discovery from Ledger alone is not claimed) purely from each generation's own real Ledger stream —
+ * `ImprovementStore` is never consulted by this function.
+ */
+export function reconstructImprovementLineage(store: LedgerStore, tenantId: string, generationIds: readonly string[]): ImprovementLineageReconstruction {
+  const nodes = generationIds.map(id => {
+    const recon = reconstructImprovementGeneration(store, tenantId, id);
+    return { generationId: id, parentGenerationId: recon.parentGenerationId, finalState: recon.finalState };
+  });
+  const idSet = new Set(generationIds);
+  const roots = nodes.filter(n => n.parentGenerationId === null || !idSet.has(n.parentGenerationId)).map(n => n.generationId);
+  return { nodes, roots };
+}
+
 export interface EvidenceExportBundle {
   version: '1.0';
   tenantId: string;

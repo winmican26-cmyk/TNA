@@ -32,8 +32,8 @@ export const ACTOR_TYPES: readonly ActorType[] = ['AGENT', 'HUMAN', 'SYSTEM', 'S
  * commit remains valid under this schema. The tag itself is untouched; this file is part of how the
  * branch evolves beyond it.
  */
-export type SourceComponent = 'tna-gate' | 'execution-broker' | 'isolation-runner' | 'vad-engine' | 'human-decision-service' | 'ledger' | 'sentinel' | 'auditor' | 'platform';
-export const SOURCE_COMPONENTS: readonly SourceComponent[] = ['tna-gate', 'execution-broker', 'isolation-runner', 'vad-engine', 'human-decision-service', 'ledger', 'sentinel', 'auditor', 'platform'];
+export type SourceComponent = 'tna-gate' | 'execution-broker' | 'isolation-runner' | 'vad-engine' | 'human-decision-service' | 'ledger' | 'sentinel' | 'auditor' | 'platform' | 'improvement-governance';
+export const SOURCE_COMPONENTS: readonly SourceComponent[] = ['tna-gate', 'execution-broker', 'isolation-runner', 'vad-engine', 'human-decision-service', 'ledger', 'sentinel', 'auditor', 'platform', 'improvement-governance'];
 
 export const EVENT_TYPES = [
   'AGENT_REGISTERED',
@@ -59,6 +59,15 @@ export const EVENT_TYPES = [
   'PLATFORM_EXECUTION_STARTED', 'PLATFORM_EXECUTION_COMPLETED',
   'PLATFORM_VERIFICATION_STARTED', 'PLATFORM_VERIFICATION_COMPLETED',
   'PLATFORM_ACTION_TERMINATED', 'PLATFORM_ACTION_INDETERMINATE', 'PLATFORM_ACTION_COMPLETED', 'PLATFORM_ACTION_FAILED',
+  // Added in TNA Recursive Improvement Governance v0.1 (Volume 12, section F) — additive only, see
+  // SourceComponent above ('improvement-governance'). Covers the improvement generation lifecycle from
+  // proposal through promotion/rejection/rollback/budget-exhaustion.
+  'IMPROVEMENT_PROPOSED', 'IMPROVEMENT_AUTHORIZED', 'IMPROVEMENT_BUILD_STARTED', 'IMPROVEMENT_BUILT',
+  'IMPROVEMENT_EVALUATION_STARTED', 'IMPROVEMENT_EVALUATED', 'CAPABILITY_DELTA_DETECTED',
+  'AUTHORITY_EXPANSION_REQUESTED', 'AUTHORITY_EXPANSION_APPROVED', 'AUTHORITY_EXPANSION_REJECTED',
+  'IMPROVEMENT_REJECTED', 'IMPROVEMENT_APPROVAL_REQUIRED', 'IMPROVEMENT_CANARY_STARTED', 'IMPROVEMENT_CANARY_FAILED',
+  'IMPROVEMENT_PROMOTED', 'IMPROVEMENT_ROLLBACK_STARTED', 'IMPROVEMENT_ROLLED_BACK', 'IMPROVEMENT_INDETERMINATE',
+  'RECURSION_BUDGET_EXHAUSTED',
 ] as const;
 export type LedgerEventType = typeof EVENT_TYPES[number];
 const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);

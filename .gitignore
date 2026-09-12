@@ -5,3 +5,4 @@ data/
 .env
 *.tsbuildinfo
 academy/.lab-state/
+improvement/.workspaces/

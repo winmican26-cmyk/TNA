@@ -71,3 +71,22 @@ export class ClientGatewayClient {
   public health(id: string): Promise<unknown> { return request(this.baseUrl, this.token, 'GET', `/v1/admin/tenants/${id}/health`); }
   public readiness(id: string): Promise<unknown> { return request(this.baseUrl, this.token, 'GET', `/v1/admin/tenants/${id}/readiness`); }
 }
+
+/** TNA Recursive Improvement Governance v0.1 (Volume 12), section L: a thin HTTP client over the real
+ * packaged governor's API — the CLI never manipulates `ImprovementStore` directly. */
+export class ImprovementGovernorClient {
+  public constructor(private readonly baseUrl: string, private readonly token: string) {}
+  public ready(): Promise<unknown> { return fetch(`${this.baseUrl}/ready`).then(r => r.json()); }
+  public propose(input: unknown): Promise<unknown> { return request(this.baseUrl, this.token, 'POST', '/v1/improvements', input); }
+  public list(systemId: string): Promise<unknown> { return request(this.baseUrl, this.token, 'GET', `/v1/improvements?systemId=${encodeURIComponent(systemId)}`); }
+  public show(id: string): Promise<unknown> { return request(this.baseUrl, this.token, 'GET', `/v1/improvements/${id}`); }
+  public authorize(id: string): Promise<unknown> { return request(this.baseUrl, this.token, 'POST', `/v1/improvements/${id}/authorize`); }
+  public build(id: string, input: unknown): Promise<unknown> { return request(this.baseUrl, this.token, 'POST', `/v1/improvements/${id}/build`, input); }
+  public evaluate(id: string, input: unknown): Promise<unknown> { return request(this.baseUrl, this.token, 'POST', `/v1/improvements/${id}/evaluate`, input); }
+  public approve(id: string, input: unknown): Promise<unknown> { return request(this.baseUrl, this.token, 'POST', `/v1/improvements/${id}/approve`, input); }
+  public canary(id: string, input: unknown): Promise<unknown> { return request(this.baseUrl, this.token, 'POST', `/v1/improvements/${id}/canary`, input); }
+  public promote(id: string, input: unknown): Promise<unknown> { return request(this.baseUrl, this.token, 'POST', `/v1/improvements/${id}/promote`, input); }
+  public rollback(id: string, input: unknown): Promise<unknown> { return request(this.baseUrl, this.token, 'POST', `/v1/improvements/${id}/rollback`, input); }
+  public evidence(id: string): Promise<unknown> { return request(this.baseUrl, this.token, 'GET', `/v1/improvements/${id}/evidence`); }
+  public lineage(id: string): Promise<unknown> { return request(this.baseUrl, this.token, 'GET', `/v1/improvements/${id}/lineage`); }
+}

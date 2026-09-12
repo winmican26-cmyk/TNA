@@ -34,7 +34,10 @@
     "test:academy:v01": "npm run build && node --test dist/tests/academy/**/*.test.js",
     "demo:academy:v01": "npm run build && node dist/scripts/demo-academy-v01.js",
     "academy:reset": "npm run build && node dist/scripts/academy-reset.js",
-    "academy:verify": "npm run build && node dist/scripts/academy-verify.js"
+    "academy:verify": "npm run build && node dist/scripts/academy-verify.js",
+    "test:improvement:v01": "npm run build && node --test dist/tests/improvement/**/*.test.js",
+    "demo:recursive-improvement:v01": "npm run build && node dist/scripts/demo-recursive-improvement-v01.js",
+    "smoke:recursive-improvement:v01": "npm run build && node dist/scripts/smoke-recursive-improvement-v01.js"
   },
   "dependencies": {"zod": "4.1.5"},
   "devDependencies": {"typescript": "5.9.2", "@types/node": "24.3.1", "eslint": "9.35.0", "typescript-eslint": "8.42.0", "@eslint/js": "9.35.0"}

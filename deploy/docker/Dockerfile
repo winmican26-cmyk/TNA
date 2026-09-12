@@ -12,6 +12,7 @@ COPY packages ./packages
 COPY scripts ./scripts
 COPY tests ./tests
 COPY academy ./academy
+COPY improvement ./improvement
 # Deterministic, lockfile-pinned install (section 113) — never an unbounded `npm install`.
 RUN npm ci && npm run build && npm prune --omit=dev
 

@@ -40,3 +40,13 @@ export function platformWriter(tenantId: string): LedgerPrincipal {
 export function platformLedgerReader(tenantId: string): LedgerPrincipal {
   return readerPrincipal('ledger-reader-platform', tenantId);
 }
+/** Added in TNA Recursive Improvement Governance v0.1 (Volume 12). Additive only — does not alter any
+ * existing writer/reader/admin. The improvement governor's own IMPROVEMENT_* evidence (proposal,
+ * authorization, build, evaluation, capability/authority delta, promotion decision, canary, rollback,
+ * budget exhaustion), distinct from the individual Gate/VAD/Sentinel events its orchestration causes. */
+export function improvementWriter(tenantId: string): LedgerPrincipal {
+  return writerPrincipal('ledger-writer-improvement', tenantId, ['improvement-governance']);
+}
+export function improvementLedgerReader(tenantId: string): LedgerPrincipal {
+  return readerPrincipal('ledger-reader-improvement', tenantId);
+}

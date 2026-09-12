@@ -10,7 +10,7 @@ import { homedir } from 'node:os';
 import { mkdirSync } from 'node:fs';
 import { loadOperatorProfile, resolveCredential, OperatorConfigError, type OperatorProfile } from './config.js';
 import { assertRoleAllows, resolveCommandKey, OperatorAuthError } from './roles.js';
-import { PlatformClient, ClientGatewayClient, OperatorHttpError } from './http-client.js';
+import { PlatformClient, ClientGatewayClient, ImprovementGovernorClient, OperatorHttpError } from './http-client.js';
 import { ok, fail, printResult, exitCodeFor, type OperatorCommandResult } from './output.js';
 import { runDoctor } from './doctor.js';
 import { collectIncidentPackage } from './incident.js';
@@ -96,6 +96,7 @@ async function main(): Promise<void> {
 
   const platform = profile.platformUrl ? new PlatformClient(profile.platformUrl, resolveCredential(profile.platformTokenEnv)) : undefined;
   const clientGateway = profile.clientGatewayUrl ? new ClientGatewayClient(profile.clientGatewayUrl, resolveCredential(profile.clientGatewayAdminTokenEnv)) : undefined;
+  const improvementGovernor = profile.improvementGovernorUrl ? new ImprovementGovernorClient(profile.improvementGovernorUrl, resolveCredential(profile.improvementGovernorTokenEnv)) : undefined;
   const auditLog = new OperatorAuditLog(auditLogPath());
   const academyProgress = new AcademyProgressStore(academyProgressPath());
 
@@ -115,7 +116,7 @@ async function main(): Promise<void> {
 
   let result: OperatorCommandResult;
   try {
-    result = await dispatch(commandKey, positionals, flags, { platform, clientGateway, reason, tenantId, profile, recordAudit, academyProgress, learnerId });
+    result = await dispatch(commandKey, positionals, flags, { platform, clientGateway, improvementGovernor, reason, tenantId, profile, recordAudit, academyProgress, learnerId });
   } catch (error) {
     if (error instanceof OperatorHttpError) {
       result = fail(error.status === 403 || error.status === 401 ? 'FORBIDDEN' : error.status === 404 ? 'NOT_FOUND' : 'FAILED', error.message, error.body);
@@ -133,6 +134,7 @@ async function main(): Promise<void> {
 
 interface DispatchDeps {
   readonly platform?: PlatformClient | undefined; readonly clientGateway?: ClientGatewayClient | undefined;
+  readonly improvementGovernor?: ImprovementGovernorClient | undefined;
   readonly reason?: string | undefined; readonly tenantId?: string | undefined; readonly profile: OperatorProfile;
   readonly recordAudit: (operation: string, target: string | null, outcome: 'OK' | 'DENIED' | 'FAILED', before?: unknown, after?: unknown, correlationId?: string) => void;
   readonly academyProgress: AcademyProgressStore; readonly learnerId: string;
@@ -153,6 +155,21 @@ function requirePlatform(platform: PlatformClient | undefined): PlatformClient {
 function requireClientGateway(clientGateway: ClientGatewayClient | undefined): ClientGatewayClient {
   if (!clientGateway) throw new OperatorConfigError('This profile does not configure clientGatewayUrl');
   return clientGateway;
+}
+function requireImprovementGovernor(improvementGovernor: ImprovementGovernorClient | undefined): ImprovementGovernorClient {
+  if (!improvementGovernor) throw new OperatorConfigError('This profile does not configure improvementGovernorUrl');
+  return improvementGovernor;
+}
+function requireGenerationId(rest: readonly string[]): string {
+  const id = rest[0];
+  if (!id) throw new OperatorConfigError('This command requires a generation id');
+  return id;
+}
+/** Section M: high-risk improvement operations require --reason AND an exact --confirm <generation-id>
+ * match — the same "fat-finger" protection `tenant offboard` already established in Volume 11, carried
+ * forward here for promote/rollback/authority-expansion-shaped approvals. */
+function requireConfirm(flags: Readonly<Record<string, string | boolean>>, generationId: string, commandKey: string): void {
+  if (flags.confirm !== generationId) throw new OperatorConfigError(`Command "${commandKey}" requires --confirm ${generationId} (exact generation id) to prevent a wrong-generation mistake`);
 }
 
 async function dispatch(commandKey: string, positionals: readonly string[], flags: Readonly<Record<string, string | boolean>>, deps: DispatchDeps): Promise<OperatorCommandResult> {
@@ -427,6 +444,85 @@ async function dispatch(commandKey: string, positionals: readonly string[], flag
       return assessment.status === 'PASSED'
         ? ok(`Level ${level} Completion Assessment: PASSED`, assessment)
         : fail('FAILED', `Level ${level} Completion Assessment: FAILED`, assessment);
+    }
+
+    // TNA Recursive Improvement Governance v0.1 (Volume 12), section L-M: every improvement command
+    // below is a thin dispatcher over the real governor HTTP API — never direct ImprovementStore access.
+    case 'improvement list': {
+      const systemId = typeof flags.system === 'string' ? flags.system : undefined;
+      if (!systemId) throw new OperatorConfigError('improvement list requires --system <systemId>');
+      return ok('Improvement generations', await requireImprovementGovernor(deps.improvementGovernor).list(systemId));
+    }
+    case 'improvement show':
+      return ok('Improvement generation', await requireImprovementGovernor(deps.improvementGovernor).show(requireGenerationId(rest)));
+    case 'improvement evidence':
+      return ok('Improvement evidence', await requireImprovementGovernor(deps.improvementGovernor).evidence(requireGenerationId(rest)));
+    case 'improvement lineage':
+      return ok('Improvement lineage', await requireImprovementGovernor(deps.improvementGovernor).lineage(requireGenerationId(rest)));
+    case 'improvement propose': {
+      const input = JSON.parse(String(flags.input ?? '{}')) as unknown;
+      return ok('Improvement generation proposed', await requireImprovementGovernor(deps.improvementGovernor).propose(input));
+    }
+    case 'improvement authorize':
+      return ok('Improvement generation authorization', await requireImprovementGovernor(deps.improvementGovernor).authorize(requireGenerationId(rest)));
+    case 'improvement build': {
+      const input = JSON.parse(String(flags.input ?? '{}')) as unknown;
+      return ok('Improvement generation build', await requireImprovementGovernor(deps.improvementGovernor).build(requireGenerationId(rest), input));
+    }
+    case 'improvement evaluate': {
+      const input = JSON.parse(String(flags.input ?? '{}')) as unknown;
+      const result = await requireImprovementGovernor(deps.improvementGovernor).evaluate(requireGenerationId(rest), input);
+      const evaluation = (result as { evaluation?: { status?: string } }).evaluation;
+      return evaluation?.status === 'PROMOTE'
+        ? ok('Improvement generation evaluated: eligible to proceed', result)
+        : fail('FAILED', `Improvement generation evaluated: ${evaluation?.status ?? 'UNKNOWN'}`, result);
+    }
+    case 'improvement diff':
+    case 'improvement capability-delta': {
+      // Both are read-only views over the same real, already-recorded evidence — never a separate
+      // computation of their own.
+      return ok('Improvement evidence', await requireImprovementGovernor(deps.improvementGovernor).evidence(requireGenerationId(rest)));
+    }
+    case 'improvement approve': {
+      const generationId = requireGenerationId(rest);
+      requireReason(deps.reason, commandKey);
+      const operation = typeof flags.operation === 'string' ? flags.operation : undefined;
+      if (!operation) throw new OperatorConfigError('improvement approve requires --operation <name>');
+      const approverRole = typeof flags['approver-role'] === 'string' ? flags['approver-role'] : undefined;
+      return ok('Improvement operation approved', await requireImprovementGovernor(deps.improvementGovernor).approve(generationId, { operation, approverRole, reason: deps.reason }));
+    }
+    case 'improvement canary': {
+      const generationId = requireGenerationId(rest);
+      const approvalId = typeof flags.approval === 'string' ? flags.approval : undefined;
+      return ok('Improvement canary', await requireImprovementGovernor(deps.improvementGovernor).canary(generationId, { approvalId }));
+    }
+    case 'improvement promote': {
+      const generationId = requireGenerationId(rest);
+      requireReason(deps.reason, commandKey);
+      requireConfirm(flags, generationId, commandKey);
+      const approvalId = typeof flags.approval === 'string' ? flags.approval : undefined;
+      if (!approvalId) throw new OperatorConfigError('improvement promote requires --approval <approvalId> from a prior "improvement approve"');
+      return ok('Improvement generation promoted', await requireImprovementGovernor(deps.improvementGovernor).promote(generationId, { approvalId }));
+    }
+    case 'improvement rollback': {
+      const generationId = requireGenerationId(rest);
+      requireReason(deps.reason, commandKey);
+      requireConfirm(flags, generationId, commandKey);
+      const approvalId = typeof flags.approval === 'string' ? flags.approval : undefined;
+      const targetGenerationId = typeof flags.target === 'string' ? flags.target : undefined;
+      if (!approvalId) throw new OperatorConfigError('improvement rollback requires --approval <approvalId> from a prior "improvement approve"');
+      if (!targetGenerationId) throw new OperatorConfigError('improvement rollback requires --target <generationId>');
+      return ok('Improvement generation rolled back', await requireImprovementGovernor(deps.improvementGovernor).rollback(generationId, { approvalId, targetGenerationId, trigger: 'MANUAL' }));
+    }
+    case 'improvement explain': {
+      const evidence = await requireImprovementGovernor(deps.improvementGovernor).evidence(requireGenerationId(rest)) as { reconstruction: { finalState: string; evaluated: Record<string, unknown> | null }; assessment: { overall: string; controls: { control_id: string; status: string; reason: string }[] } };
+      // Section 101: deterministic, rules-based explanation — no LLM decides what happened here, the
+      // same original machine evidence (`reconstruction`/`assessment`) is always shown alongside it.
+      const failingControls = evidence.assessment.controls.filter(c => c.status !== 'PASS');
+      const summary = failingControls.length === 0
+        ? `Generation reached final state ${evidence.reconstruction.finalState}; every assessed control passed.`
+        : `Generation reached final state ${evidence.reconstruction.finalState}; ${failingControls.length} control(s) did not cleanly pass: ${failingControls.map(c => `${c.control_id}=${c.status} (${c.reason})`).join('; ')}.`;
+      return ok(summary, evidence);
     }
 
     default:

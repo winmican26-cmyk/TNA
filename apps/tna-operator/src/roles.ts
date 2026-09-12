@@ -47,6 +47,17 @@ export const COMMAND_MIN_ROLE: Readonly<Record<string, OperatorRole>> = {
   // lowest role, 'viewer', is sufficient for every one of them, deliberately.
   'academy status': 'viewer', 'academy lesson': 'viewer', 'academy lab start': 'viewer',
   'academy lab verify': 'viewer', 'academy assessment': 'viewer',
+  // TNA Recursive Improvement Governance v0.1 (Volume 12), section L-M: the CLI never manipulates
+  // ImprovementStore directly — every command below calls the real governor HTTP API. Consequential
+  // operations (promote, rollback) require 'admin', mirroring 'tenant offboard'/'handoff generate';
+  // approving a HELD operation requires 'security-operator', mirroring 'hold reject'.
+  'improvement list': 'viewer', 'improvement show': 'viewer', 'improvement evidence': 'viewer',
+  'improvement lineage': 'viewer', 'improvement diff': 'viewer', 'improvement capability-delta': 'viewer',
+  'improvement explain': 'viewer',
+  'improvement propose': 'operator', 'improvement authorize': 'operator', 'improvement build': 'operator',
+  'improvement evaluate': 'operator', 'improvement canary': 'operator',
+  'improvement approve': 'security-operator',
+  'improvement promote': 'admin', 'improvement rollback': 'admin',
 };
 
 /** Matches the longest known command key against the leading words of `positionals` — e.g. `['tenant',
