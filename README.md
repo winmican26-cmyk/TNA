@@ -181,6 +181,31 @@ layer. Remaining honest gaps (long-form narrative lesson prose per curriculum to
 Volume 11-only edge cases) are listed in the proof-of-work's "Remaining Limitations" — none of them are
 mandatory-gate items.
 
+## Volume 12 status — TNA Recursive Improvement Governance v0.1 — Architecturally accepted with documented scope and limitations
+
+TNA Recursive Improvement Governance (`packages/improvement-*`, `apps/tna-improvement-governor`) governs a
+system that proposes and evaluates its own improvements — never letting a candidate manufacture its own
+authority. A candidate generation flows through a real pipeline: proposal → immutable spec →
+classification → Gate authorization → an isolated mutation workspace → real VAD verification → the real
+`PromotionEvaluator` (real spawned regression/security/benchmark processes) → a real Sentinel-backed canary
+→ promotion, rejection, or rollback → the Ledger → a narrow, evidence-only Auditor-equivalent assessment.
+Competence change, authority change, and control-plane/evaluator change are three structurally separate
+categories (TNA-72–81): the evaluator's own code is permanently outside every candidate's mutation scope
+regardless of class or approval, a candidate's own declared authority can never widen its ceiling, and a
+higher benchmark score can never override an earlier security/control failure. Run
+`npm run demo:recursive-improvement:v01` and `npm run smoke:recursive-improvement:v01` (both drive the
+real, packaged governor and the real operator CLI — no separate, duplicate-truth orchestration). See
+[docs/improvement/proof-of-work-recursive-improvement-v0.1.md](docs/improvement/proof-of-work-recursive-improvement-v0.1.md)
+and
+[docs/improvement/recursive-improvement-requirement-matrix-v0.1.md](docs/improvement/recursive-improvement-requirement-matrix-v0.1.md)
+for full scope and residual risk. **TNA Recursive Improvement Governance v0.1 — Architecturally accepted
+with documented scope and limitations** (tag `tna-recursive-improvement-v0.1`). This volume does not solve
+AI alignment, does not prove recursive self-improvement universally safe, does not guarantee containment of
+arbitrary advanced AI, and does not claim to solve reward hacking generally — its holdout fixture detects
+one implemented benchmark-gaming class only. The correct claim is that TNA governs recursive improvement
+under defined, implementation-backed control boundaries and reproducibly tested scenarios; see the
+proof-of-work's "LIMITATIONS" section for the complete list.
+
 ## Repository
 
 ```text
