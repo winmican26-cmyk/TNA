@@ -583,3 +583,89 @@ control, and does not appear on the brief's own Mandatory Acceptance Gate.
 
 Do not tag `tna-operator-academy-v0.1` — that step is reserved for the architectural acceptance review
 itself. Do not begin Volume 12.
+
+---
+
+## Architectural Acceptance
+
+Status:
+ARCHITECTURALLY ACCEPTED AS TNA OPERATOR READINESS & DEPLOYMENT ACADEMY v0.1
+WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+Accepted implementation commit:
+e5d8acf67603f5cc2729a1e9ffd64bbd1bdc7d04
+
+Accepted tag:
+tna-operator-academy-v0.1
+
+Tag target:
+e5d8acf67603f5cc2729a1e9ffd64bbd1bdc7d04
+
+Accepted regression baseline:
+872 / 872
+
+Repeatability:
+Two consecutive `npm run check` runs passed (both before and after the accepted commit was created).
+
+Academy tests:
+75 / 75 PASS, twice
+
+Academy demo:
+PASS
+
+Operator smoke:
+PASS
+
+Operator demo:
+PASS
+
+Real Academy CLI process:
+PASS
+
+Academy process cleanup:
+PASS
+
+Question bank:
+120 total
+25 / 30 / 30 / 35
+
+Level assessments:
+4 / 4 PASS
+
+Required labs:
+15 / 15 PASS
+
+Fresh learner progression:
+Levels 1–4 PASS
+
+Mandatory blockers remaining:
+0
+
+## Preserved Limitations (not superseded by acceptance)
+
+Architectural acceptance of this volume does **not** mean any of the following became true — these
+boundaries stay in force exactly as documented throughout this proof-of-work and its threat model:
+
+- Academy completion is not professional certification.
+- Academy completion does not grant production authority.
+- Training evidence and production authorization remain separate (TNA-69).
+- The operator CLI is not a SaaS admin portal.
+- No enterprise IAM/SSO/SCIM expansion exists here.
+- No Kubernetes/multi-region operations layer is claimed.
+- No billing or customer portal is included.
+- Go-live assessment is evidence-based readiness assessment, not regulatory certification.
+- Diagnostics are observational and explanatory; they do not silently repair or approve anything.
+- Support/incident packages remain sensitive security artifacts, not general-purpose exports.
+- Human operators remain part of the threat model (TNA-65).
+- The Academy proves the implemented deterministic labs and assessments, not universal operator
+  competence in every possible deployment environment.
+- The long-form narrative lesson prose per curriculum topic remains unwritten — the labs, question bank,
+  and assessments are real; the prose is a documented future-pass item.
+
+## Next Planned Milestone
+
+Volume 12 — TNA Recursive Improvement Governance v0.1
+PLANNED — NOT STARTED
+
+No implementation files, packages, tests, or code for Volume 12 exist anywhere in this repository as of
+the accepted commit above.
