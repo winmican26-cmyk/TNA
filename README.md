@@ -206,6 +206,33 @@ one implemented benchmark-gaming class only. The correct claim is that TNA gover
 under defined, implementation-backed control boundaries and reproducibly tested scenarios; see the
 proof-of-work's "LIMITATIONS" section for the complete list.
 
+## Volume 13 status — TNA Client Control Center & Assurance UI v0.1 — Architecturally accepted with documented scope and limitations
+
+The Control Center (`apps/tna-control-center`, a session-authenticated BFF; `apps/tna-control-center-web`,
+the real React/Vite browser frontend) lets a TNA client tenant inspect and interact with governed AI-agent
+activity already produced by the accepted backend stack — it holds no authority of its own:
+`BROWSER -> authenticated BFF -> accepted backend service -> Gate/Sentinel/... -> Ledger evidence`, never
+`BROWSER -> "UI SAYS IT IS SAFE"`. Real product surfaces: Dashboard/Actions/Approval, Connections/MCP,
+Governed Tools with real schema-drift detection, Evidence Explorer, Audit/Assurance, a real
+Recursive-Improvement lineage UI (the flagship — competence/authority/capability/control-plane kept visually
+separate, never collapsed into one score), a live, non-persistent Incidents aggregation, Identity/credential
+lifecycle, an onboarding wizard, and polling-based notifications. Run `npm run demo:control-center:v01` and
+`npm run smoke:control-center:v01` (both drive the real, packaged BFF and the real compiled frontend against
+real in-process backends); `npx playwright test` runs the real-browser acceptance suite. See
+[docs/control-center/proof-of-work-control-center-v0.1.md](docs/control-center/proof-of-work-control-center-v0.1.md)
+and
+[docs/control-center/control-center-requirement-matrix-v0.1.md](docs/control-center/control-center-requirement-matrix-v0.1.md)
+for full scope and residual risk. **TNA Client Control Center & Assurance UI v0.1 — Architecturally accepted
+with documented scope and limitations** (tag `tna-control-center-v0.1`). This volume does not replace the
+TNA Operator CLI/Console, does not grant `client-admin` any TNA-operator authority, does not certify legal/
+regulatory/compliance status, does not prove AI-agent safety, and does not invent evidence a real backend
+does not expose (numeric improvement-benchmark scores, a "holdout" result, or a persistent Incident record
+all remain honestly absent rather than fabricated). Two residual, non-blocking items: `react-router-dom`/
+`vite` retain moderate-severity dependency findings fixable only by a major version bump, neither reachable
+in this deployment's actual runtime paths; and a literal reverse-proxy (nginx) hop in front of the BFF was
+not exercised in this volume's container verification, though the BFF's own combined API+static serving was
+verified live. See the proof-of-work's "Architectural Acceptance" section for the complete list.
+
 ## Repository
 
 ```text
