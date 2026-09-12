@@ -191,6 +191,89 @@ test reconciliation below).
 
 ## Existing accepted tags
 
-Unchanged. `tna-recursive-improvement-v0.1` remains exactly as accepted. **No `tna-control-center-v0.1` tag
-exists** — Volume 13 remains untagged and unfrozen per every instruction issued during its development.
-Volume 14 has not been started.
+Unchanged. Verified against every previously accepted tag at acceptance time:
+`tna-gate-v0.1`/`v0.2`/`v0.3`, `vad-engine-v0.1`, `tna-ledger-v0.1`, `tna-sentinel-v0.1`,
+`tna-auditor-v0.1`, `tna-platform-v0.1`, `tna-deployment-v0.1`, `tna-client-integration-v0.1`,
+`tna-operator-academy-v0.1` (`e5d8acf67603f5cc2729a1e9ffd64bbd1bdc7d04`), `tna-recursive-improvement-v0.1`
+(`d88ce81d337f595ff4a5a3a48711fc639386c525`) — none moved.
+
+## Architectural Acceptance
+
+Status:
+ARCHITECTURALLY ACCEPTED AS
+TNA CLIENT CONTROL CENTER & ASSURANCE UI v0.1
+WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+Accepted implementation commit:
+600f89e46714ce243cc9a5fc8338198a0299b759
+
+Accepted tag:
+tna-control-center-v0.1
+
+Tag target:
+600f89e46714ce243cc9a5fc8338198a0299b759
+
+Accepted baseline:
+1015 / 1015
+
+Volume 13 node:test:
+83
+
+Accepted node test total:
+1098 / 1098
+
+Playwright:
+25 / 25
+
+FAIL:
+0
+
+SKIP:
+0
+
+Repeatability:
+Two consecutive npm run check runs passed with identical results.
+
+Packaged frontend:
+PASS
+
+Packaged BFF:
+PASS
+
+Control Center smoke:
+PASS
+
+Control Center demo:
+PASS
+
+Container verification:
+PASS
+
+Hardcoded authoritative UI evidence:
+NONE
+
+Volume 12 hardcoded-evidence guarantee:
+PRESERVED
+
+Frontend evidence provenance matrix:
+COMPLETE
+
+Reachable high-severity dependency blockers:
+0
+
+Dependency limitation (documented, not a blocker): `react-router-dom`/`vite` retain moderate-severity
+findings requiring major-version upgrades; not reachable through the deployed runtime paths exercised by
+this v0.1 architecture (no attacker-controlled redirect target anywhere in this codebase; `vite`/`esbuild`
+are dev-only tooling never copied into the runtime container). This is not the same claim as "npm audit
+clean" or "all dependencies vulnerability-free" — neither of those statements is true, and neither is made.
+
+Reverse-proxy limitation (documented, not a blocker): Volume 13 verified the packaged BFF serving the
+compiled frontend and communicating with real backend services, live, in containers. A literal nginx (or
+equivalent) reverse-proxy hop in front of the BFF was not exercised as part of this acceptance suite. Do not
+represent this as "full nginx deployment path verified" unless a future volume actually does that.
+
+Mandatory blockers remaining:
+0
+
+Volume 14 started:
+NO
