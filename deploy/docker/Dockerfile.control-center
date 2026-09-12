@@ -1,0 +1,45 @@
+# TNA Client Control Center & Assurance UI v0.1 (Volume 13), build-order item 14. Multi-stage build
+# mirroring `deploy/docker/Dockerfile`'s conventions exactly (non-root user, deterministic `npm ci`, no
+# shell-form entrypoint) — the one difference is that this image also builds and packages the REAL compiled
+# frontend (`apps/tna-control-center-web`) and serves it from the BFF's own `staticRoot`, never a `vite`
+# dev server. Build from the repository root:
+#   docker build -f deploy/docker/Dockerfile.control-center -t tna-control-center:0.1.0 .
+# syntax=docker/dockerfile:1
+
+FROM node:24-slim AS builder
+WORKDIR /app
+COPY package.json package-lock.json tsconfig.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY scripts ./scripts
+COPY tests ./tests
+COPY academy ./academy
+COPY improvement ./improvement
+# `apps/tna-control-center-web` is a real npm workspace member (matches the root `apps/*` glob) — one
+# `npm ci` at the repository root installs both the BFF's and the frontend's dependencies together.
+RUN npm ci
+RUN npm run build
+RUN npm run build:control-center-web
+RUN npm prune --omit=dev
+
+FROM node:24-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+RUN mkdir -p /data && chown -R node:node /app /data
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist/apps/tna-control-center ./dist/apps/tna-control-center
+# `dist/scripts/control-center-create-user.js` is the real operator user-provisioning tool (no self
+# -service signup exists) — packaged here so an operator can run it via `docker exec` against the same
+# real database this container's BFF process uses.
+COPY --from=builder --chown=node:node /app/dist/scripts/control-center-create-user.js ./dist/scripts/control-center-create-user.js
+COPY --from=builder --chown=node:node /app/apps/tna-control-center-web/dist ./apps/tna-control-center-web/dist
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+USER node
+ENV TNA_CONTROL_CENTER_HOST=0.0.0.0
+ENV TNA_CONTROL_CENTER_PORT=4719
+ENV TNA_CONTROL_CENTER_STATIC_ROOT=/app/apps/tna-control-center-web/dist
+ENV TNA_CONTROL_CENTER_DB_PATH=/data/control-center.sqlite
+EXPOSE 4719
+# No shell form, no package-manager entrypoint wrapper — a single direct exec so SIGTERM reaches main.js
+# as PID 1, matching the accepted Platform image's own discipline.
+ENTRYPOINT ["node", "dist/apps/tna-control-center/src/main.js"]

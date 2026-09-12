@@ -1,10 +1,20 @@
 {
-  "name": "trust-no-agent", "version": "0.1.0", "private": true, "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
-  "engines": {"node": ">=24.0.0"},
+  "name": "trust-no-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node -e \"const fs=require('node:fs'); for (const name of ['level-1.json','level-2.json','level-3.json','level-4.json']) fs.copyFileSync('academy/question-bank/'+name, 'dist/academy/question-bank/'+name)\"", "typecheck": "tsc --noEmit",
-    "lint": "eslint apps packages tests scripts academy eslint.config.js", "test": "npm run build && node --test dist/tests/**/*.test.js",
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('node:fs'); for (const name of ['level-1.json','level-2.json','level-3.json','level-4.json']) fs.copyFileSync('academy/question-bank/'+name, 'dist/academy/question-bank/'+name)\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint apps packages tests scripts academy eslint.config.js",
+    "test": "npm run build && node --test dist/tests/**/*.test.js",
     "check": "npm run typecheck && npm run lint && npm test",
     "start": "node dist/apps/tna-gate-api/src/main.js",
     "demo": "npm run build && node dist/scripts/demo.js",
@@ -37,8 +47,23 @@
     "academy:verify": "npm run build && node dist/scripts/academy-verify.js",
     "test:improvement:v01": "npm run build && node --test dist/tests/improvement/**/*.test.js",
     "demo:recursive-improvement:v01": "npm run build && node dist/scripts/demo-recursive-improvement-v01.js",
-    "smoke:recursive-improvement:v01": "npm run build && node dist/scripts/smoke-recursive-improvement-v01.js"
+    "smoke:recursive-improvement:v01": "npm run build && node dist/scripts/smoke-recursive-improvement-v01.js",
+    "test:control-center:v01": "npm run build && node --test dist/tests/control-center/**/*.test.js",
+    "build:control-center-web": "npm --prefix apps/tna-control-center-web install && npm --prefix apps/tna-control-center-web run build",
+    "smoke:control-center:v01": "npm run build && npm run build:control-center-web && node dist/scripts/smoke-control-center-v01.js",
+    "test:e2e:control-center:v01": "npm run build && npm run build:control-center-web && playwright test",
+    "demo:control-center:v01": "npm run build && npm run build:control-center-web && node dist/scripts/demo-control-center-v01.js",
+    "control-center:create-user": "node dist/scripts/control-center-create-user.js"
   },
-  "dependencies": {"zod": "4.1.5"},
-  "devDependencies": {"typescript": "5.9.2", "@types/node": "24.3.1", "eslint": "9.35.0", "typescript-eslint": "8.42.0", "@eslint/js": "9.35.0"}
+  "dependencies": {
+    "zod": "4.1.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.35.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "24.3.1",
+    "eslint": "9.35.0",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.42.0"
+  }
 }

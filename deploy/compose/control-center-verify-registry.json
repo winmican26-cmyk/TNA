@@ -1,0 +1,8 @@
+[
+  {
+    "tenant_id": "ten_verify",
+    "platform_base_url": "http://tna-platform:4618",
+    "platform_token": "verify-agent-token-please-change-3xxxxx",
+    "platform_operator_token": "verify-operator-token-please-change-3x"
+  }
+]

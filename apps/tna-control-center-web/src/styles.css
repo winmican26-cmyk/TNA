@@ -1,0 +1,57 @@
+/* TNA Client Control Center & Assurance UI v0.1 (Volume 13), section 69: serious enterprise control
+   software — no gradients, no chatbot styling, high information density, status conveyed by text AND
+   color (never color alone, section 67). */
+:root {
+  --bg: #0f1115; --panel: #171a21; --border: #2a2f3a; --text: #e6e8eb; --muted: #9aa3b2;
+  --ok: #3fb950; --warn: #d29922; --bad: #f85149; --unknown: #8b949e; --accent: #4493f8;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px;
+}
+a { color: var(--accent); }
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 200px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border); padding: 16px 0; }
+.sidebar a { display: block; padding: 8px 20px; color: var(--muted); text-decoration: none; }
+.sidebar a.active, .sidebar a:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.sidebar .brand { padding: 0 20px 16px; font-weight: 600; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.main { flex: 1; min-width: 0; padding: 24px; }
+.env-banner { padding: 4px 12px; font-size: 12px; font-weight: 600; text-align: center; letter-spacing: 0.05em; }
+.env-banner.production { background: var(--bad); color: #1a0000; }
+.env-banner.staging { background: var(--warn); color: #201400; }
+.env-banner.development { background: var(--muted); color: #0a0a0a; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 16px; margin-bottom: 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.metric { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+.metric .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.metric .value { font-size: 24px; font-weight: 600; margin-top: 4px; }
+.status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+.status-badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.status-AVAILABLE, .status-HEALTHY, .status-COMPLETED, .status-VERIFIED { color: var(--ok); }
+.status-AVAILABLE::before, .status-HEALTHY::before, .status-COMPLETED::before, .status-VERIFIED::before { background: var(--ok); }
+.status-DEGRADED, .status-HELD, .status-READY_WITH_LIMITATIONS { color: var(--warn); }
+.status-DEGRADED::before, .status-HELD::before, .status-READY_WITH_LIMITATIONS::before { background: var(--warn); }
+.status-UNAVAILABLE, .status-BLOCKED, .status-FAILED, .status-TERMINATED, .status-NOT_READY, .status-CORRUPT { color: var(--bad); }
+.status-UNAVAILABLE::before, .status-BLOCKED::before, .status-FAILED::before, .status-TERMINATED::before, .status-NOT_READY::before, .status-CORRUPT::before { background: var(--bad); }
+.status-INDETERMINATE, .status-UNKNOWN, .status-INSUFFICIENT_EVIDENCE { color: var(--unknown); }
+.status-INDETERMINATE::before, .status-UNKNOWN::before, .status-INSUFFICIENT_EVIDENCE::before { background: var(--unknown); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 11px; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+input[type=text], input[type=password] { background: #0a0c10; border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 4px; width: 100%; }
+button { background: var(--accent); color: #06111f; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.error-text { color: var(--bad); font-size: 13px; }
+.muted { color: var(--muted); }
+.login-shell { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-box { width: 320px; padding: 24px; }
+@media (max-width: 720px) {
+  .app-shell { flex-direction: column; }
+  .sidebar { width: 100%; display: flex; overflow-x: auto; padding: 8px; }
+  .sidebar .brand { display: none; }
+  .sidebar a { padding: 8px 12px; white-space: nowrap; }
+}

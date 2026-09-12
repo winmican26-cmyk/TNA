@@ -6,3 +6,9 @@ data/
 *.tsbuildinfo
 academy/.lab-state/
 improvement/.workspaces/
+test-results/
+playwright-report/
+e2e-fixtures.json
+apps/tna-control-center-web/dist/
+apps/tna-control-center-web/node_modules/
+apps/tna-control-center-web/.npm-cache/

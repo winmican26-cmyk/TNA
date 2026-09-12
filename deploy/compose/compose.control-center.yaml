@@ -1,0 +1,52 @@
+# TNA Client Control Center & Assurance UI v0.1 (Volume 13), build-order item 14 — real container
+# verification topology. Two real, separately-built images on one Docker network: the accepted
+# `tna-platform` image (unmodified) and the new `tna-control-center` image, wired together via a real
+# tenant registry file naming Platform's real in-network address — never a stub or interception.
+name: tna-control-center-verify
+services:
+  tna-platform:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    image: tna-platform:verify
+    environment:
+      TNA_ENV: development
+      TNA_TENANT_ID: ten_verify
+      TNA_HOST: 0.0.0.0
+      TNA_PORT: "4618"
+      TNA_TRUST_PROXY: "false"
+      TNA_DATA_DIR: /data
+      TNA_OPERATOR_TOKEN: verify-operator-token-please-change-3x
+      TNA_ADMIN_TOKEN: verify-admin-token-please-change-32xx
+      TNA_SERVICE_TOKEN: verify-service-token-please-change-3x
+      TNA_PLATFORM_DEMO_AGENT_TOKEN: verify-agent-token-please-change-3xxxxx
+      TNA_PLATFORM_DEMO_AGENT_ID: verify-demo-agent
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4618/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  tna-control-center:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.control-center
+    image: tna-control-center:verify
+    depends_on:
+      tna-platform:
+        condition: service_healthy
+    environment:
+      TNA_CONTROL_CENTER_TENANT_REGISTRY_PATH: /config/tenant-registry.json
+      TNA_CONTROL_CENTER_COOKIE_SECURE: "false"
+      TNA_CONTROL_CENTER_ENVIRONMENT: staging
+    volumes:
+      - ./control-center-verify-registry.json:/config/tenant-registry.json:ro
+    ports:
+      - "4719:4719"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4719/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
