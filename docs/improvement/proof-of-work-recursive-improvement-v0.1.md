@@ -320,14 +320,25 @@ implementation actually supports every one of them (see the cross-references int
 Volume 12 does **not** establish that:
 
 - TNA solves AI alignment.
-- Recursive self-improvement is universally safe.
-- Arbitrary advanced AI cannot escape containment.
-- Unknown host/runtime exploits are prevented.
-- All emergent capabilities can be detected.
+- TNA proves recursive self-improvement universally safe.
+- TNA guarantees containment of arbitrary advanced AI.
+- TNA proves the absence of unknown host, kernel, hypervisor, dependency, or credential-infrastructure
+  exploits.
+- Capability-delta analysis detects every possible emergent capability — it detects configured and
+  observable changes; it does not prove absence of every latent emergent capability (see
+  `capability-delta-v0.1.md`).
 - Benchmarks completely characterize behavior.
-- Reward hacking is generally solved.
-- Deceptive alignment is solved.
+- The implemented reward-hacking holdout solves reward hacking generally — it detects the tested
+  benchmark-gaming class only (see the threat model's dedicated scope section and
+  `evaluation-profile-v0.1.md`).
+- Passing the evaluation suite proves universal successor safety — it proves tested behavior, not
+  universal safety.
+- Every deceptive strategy is prevented — no claim of preventing every deceptive strategy, and deceptive
+  alignment is not solved.
 - Kernel/hypervisor compromise is prevented.
+- Any regulatory or security certification is conferred by this volume.
+- Any SaaS, billing, Kubernetes, or unrelated platform expansion was added — none was; Volume 12 remains
+  scoped to recursive improvement governance exactly as specified.
 
 **The correct claim is:** TNA governs recursive improvement under defined, implementation-backed control
 boundaries and reproducibly tested scenarios.
@@ -360,3 +371,54 @@ boundaries and reproducibly tested scenarios.
 - **Auditor-equivalent assessment is Volume 12's own, separate from the accepted `packages/auditor-controls`
   catalog**, which is hardcoded/non-pluggable by design (confirmed by inspection, not an oversight this
   volume could resolve without a separate, larger change to that already-accepted package).
+
+## Architectural Acceptance
+
+Status:
+ARCHITECTURALLY ACCEPTED AS TNA RECURSIVE IMPROVEMENT GOVERNANCE v0.1
+WITH DOCUMENTED SCOPE AND LIMITATIONS
+
+Accepted implementation commit:
+d88ce81d337f595ff4a5a3a48711fc639386c525
+
+Accepted tag:
+tna-recursive-improvement-v0.1
+
+Tag target:
+d88ce81d337f595ff4a5a3a48711fc639386c525
+
+Accepted regression baseline:
+1015 / 1015
+
+FAIL:
+0
+
+SKIP:
+0
+
+Repeatability:
+Two consecutive npm run check runs passed.
+
+Packaged smoke:
+PASS
+
+Recursive improvement demo:
+PASS
+
+E2E A–J:
+11 / 11 PASS
+
+Real Git/worktree:
+7 / 7 PASS
+
+Reward-hacking holdout:
+3 / 3 PASS
+
+Hardcoded authoritative evidence:
+NONE
+
+Evidence provenance matrix:
+COMPLETE
+
+Mandatory blockers remaining:
+0
