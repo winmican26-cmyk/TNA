@@ -1,0 +1,535 @@
+[
+  {
+    "question_id": "L4-Q01",
+    "level": 4,
+    "objective": "Understand the Authority Envelope's action_binding matching.",
+    "scenario": "An envelope declares `tools.allow: ['crm.lookup']` and one action_binding for action 'crm.lookup.execute' bound to tool 'crm.lookup', resource_kind 'files', operation 'read'. A request arrives with action 'crm.lookup.execute', tool 'crm.lookup', but requests a resource outside the declared files.read patterns.",
+    "question": "What does Gate's policy engine do?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "ALLOW, because the action and tool both match",
+      "BLOCK, with reason 'Undeclared resource or operation' — matching the binding alone is not sufficient, the specific resource must also be declared",
+      "HOLD, pending clarification",
+      "It throws an unhandled exception"
+    ],
+    "correct_answer": "BLOCK, with reason 'Undeclared resource or operation' — matching the binding alone is not sufficient, the specific resource must also be declared",
+    "explanation": "The policy engine's evaluate() function checks matchesResource() against the envelope's resources[binding.resource_kind][binding.operation] list even after the action/tool binding itself matches — every dimension must agree, not just the coarse action-to-tool mapping.",
+    "principles": ["Authority (Gate)"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q02",
+    "level": 4,
+    "objective": "Understand capability single-use redemption.",
+    "question": "Can a capability token be redeemed twice for two separate tool executions?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Capabilities are short-lived and single-use by design — the execution broker consumes them on redemption, preventing a second independent execution from the same token.",
+    "principles": ["Authority (Gate)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q03",
+    "level": 4,
+    "objective": "Understand input-binding drift detection.",
+    "scenario": "A platform action's stored request is directly tampered at the database level between authorization and execution (a white-box test scenario).",
+    "question": "What does the execution orchestrator do when it detects the computed input hash no longer matches the input_hash bound at authorization time?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Proceeds anyway, since the tampering is unlikely",
+      "Fails closed to TERMINATED with EXECUTION_FAILED — the connector is never invoked once binding drift is detected",
+      "Silently repairs the record to match the original input",
+      "Retries the authorization step automatically"
+    ],
+    "correct_answer": "Fails closed to TERMINATED with EXECUTION_FAILED — the connector is never invoked once binding drift is detected",
+    "explanation": "Input-binding re-verification (section 19) checks the stored request against its bound hash immediately before execution; a mismatch is a clean, immediate TERMINATED failure, never a silent pass-through.",
+    "principles": ["Integration (Platform)"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q04",
+    "level": 4,
+    "objective": "Understand Sentinel's mandatory pre-action check.",
+    "question": "Is Sentinel's TOOL_CALL_REQUESTED pre-action check optional, or can the platform skip it for low-risk tools to save latency?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The mandatory pre-action Sentinel check (section 23) runs before every connector invocation, regardless of the tool's risk classification. A TERMINATE or HOLD decision here means the connector is never called at all.",
+    "principles": ["Runtime Control (Sentinel)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q05",
+    "level": 4,
+    "objective": "Understand containment confirmation honesty.",
+    "scenario": "Sentinel decides TERMINATE for a session, but the containment mechanism has not yet confirmed the termination completed.",
+    "question": "What terminal state does the platform action reach?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "TERMINATED, assuming containment always succeeds",
+      "INDETERMINATE — a TERMINATE decision whose containment is not yet confirmed must never be reported as a confirmed TERMINATED",
+      "COMPLETED, since the decision itself was made correctly",
+      "The action is deleted from the record"
+    ],
+    "correct_answer": "INDETERMINATE — a TERMINATE decision whose containment is not yet confirmed must never be reported as a confirmed TERMINATED",
+    "explanation": "This is deliberately tested: a Sentinel TERMINATE whose containment is not yet confirmed resolves to INDETERMINATE, never a false TERMINATED. Lab 3 (Sentinel Termination) is built specifically to teach this distinction.",
+    "principles": ["Runtime Control (Sentinel)", "TNA-48"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q06",
+    "level": 4,
+    "objective": "Understand emergency stop scoping.",
+    "question": "Sentinel's `activateStop` can be scoped to 'tenant', 'agent', or 'session'. If scoped to 'tenant', which sessions are affected?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Only the one session explicitly named",
+      "Every session belonging to that tenant, regardless of which agent or session id it is",
+      "No sessions — tenant scope is purely informational",
+      "Every session across all tenants"
+    ],
+    "correct_answer": "Every session belonging to that tenant, regardless of which agent or session id it is",
+    "explanation": "isStopped's check treats a tenant-scoped stop as matching any session under that tenant, an agent-scoped stop as matching only that agent's sessions, and a session-scoped stop as matching only that one session.",
+    "principles": ["Runtime Control (Sentinel)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q07",
+    "level": 4,
+    "objective": "Understand VAD's deterministic gate versus verifier distinction.",
+    "question": "Are the 'deterministic gate' (producer attempt validation) and the 'verifier' (independent post-hoc check) the same mechanism?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The deterministic gate checks the producer's own attempt against success criteria during the attempt loop; the verifier is a separate, independent check applied after a gate-passing attempt, and can still REJECT work that passed the gate.",
+    "principles": ["Verification (VAD)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q08",
+    "level": 4,
+    "objective": "Understand VAD's human-decision override.",
+    "question": "After a verifier issues REJECT, can a human reviewer override it to ACCEPT without any recorded evidence trail?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Human override requires an actor, a rationale, and preserves the spec hash and the automated outcome alongside the human decision — never an untracked override.",
+    "principles": ["Verification (VAD)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q09",
+    "level": 4,
+    "objective": "Understand Ledger causal chain construction.",
+    "question": "How does a Ledger event record what caused it, as opposed to merely when it happened?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "By comparing timestamps after the fact to guess likely causation",
+      "Each event explicitly names its own causation_id/parent_event_id at the moment it is enqueued — causation is captured, not reconstructed later from chronological proximity (TNA-50)",
+      "Causation is not tracked in TNA's Ledger",
+      "By manual operator annotation after an incident"
+    ],
+    "correct_answer": "Each event explicitly names its own causation_id/parent_event_id at the moment it is enqueued — causation is captured, not reconstructed later from chronological proximity (TNA-50)",
+    "explanation": "TNA-50 ('Causation Is Captured, Not Reconstructed') establishes that causal linkage is recorded at the moment of the causing event, never inferred afterward from adjacency or timing alone — timing-based inference could be wrong under concurrency.",
+    "principles": ["Evidence (Ledger)", "TNA-50"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q10",
+    "level": 4,
+    "objective": "Understand hash-chain integrity verification.",
+    "question": "If a single Ledger event's stored hash is directly tampered at the database level, what does `verifyStream`/`verifyLedgerIntegrity` report?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It silently repairs the hash automatically",
+      "It reports that stream as invalid — the tampering is detected, not fixed",
+      "It reports success, since only application code writes hashes normally",
+      "It deletes the corrupted event and continues"
+    ],
+    "correct_answer": "It reports that stream as invalid — the tampering is detected, not fixed",
+    "explanation": "This is exactly what Lab 6 (Ledger Corruption) demonstrates directly: a tampered event_hash causes real, honest integrity-check failure, with no automatic repair offered.",
+    "principles": ["Evidence (Ledger)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q11",
+    "level": 4,
+    "objective": "Understand hash-chaining's actual guarantee.",
+    "question": "Does TNA's hash-chained Ledger claim to be a tamper-proof or WORM (write-once-read-many) storage guarantee?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "This is an explicit, documented residual-risk limitation: hash chaining detects tampering after the fact for anyone verifying the chain, but is not itself a tamper-proof or WORM storage claim — a party with direct database file access could still rewrite the store (a compromised-host scenario, out of scope by design).",
+    "principles": ["Evidence (Ledger)"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q12",
+    "level": 4,
+    "objective": "Understand evidence delivery durability across process failure.",
+    "question": "A process delivering evidence to the Ledger crashes mid-delivery. Is the delivery obligation lost?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "TNA-46 ('Evidence Delivery Must Survive Process Failure') is enforced by the durable outbox pattern — the obligation persists in the outbox table and is retried by whichever process claims it next, never lost simply because one process crashed mid-attempt.",
+    "principles": ["Integration (Platform)", "TNA-46"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q13",
+    "level": 4,
+    "objective": "Understand durable outbox lease ownership.",
+    "question": "Two platform processes could theoretically both try to dispatch the same outbox record at once. What prevents them from double-delivering it?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Nothing — duplicate delivery is an accepted risk",
+      "A durable, CAS-protected claim/lease (claimNext) that only one process can win; the other's claim attempt fails, and an expired lease can only be reclaimed by treating it as abandoned, never stolen preemptively from a still-active owner",
+      "A random delay before each process starts",
+      "Manual coordination via a config file"
+    ],
+    "correct_answer": "A durable, CAS-protected claim/lease (claimNext) that only one process can win; the other's claim attempt fails, and an expired lease can only be reclaimed by treating it as abandoned, never stolen preemptively from a still-active owner",
+    "explanation": "TNA-49 ('Delivery Ownership Must Be Durable') is the exact principle behind this lease/claim model.",
+    "principles": ["Integration (Platform)", "TNA-49"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q14",
+    "level": 4,
+    "objective": "Understand deterministic event identity under retry.",
+    "question": "Why must the Ledger event id used for an outbox record's delivery be a deterministic function of the outbox record's own id, rather than freshly randomly generated on each delivery attempt?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "For no real reason — it is an arbitrary implementation detail",
+      "So that a retried delivery (after a prior failed attempt) produces the exact same event identity, never a duplicate event for what is really the same evidence obligation",
+      "To make ids shorter",
+      "Random ids are actually used, not deterministic ones"
+    ],
+    "correct_answer": "So that a retried delivery (after a prior failed attempt) produces the exact same event identity, never a duplicate event for what is really the same evidence obligation",
+    "explanation": "outboxLedgerEventId(outboxId) guarantees idempotent identity across retries — proven directly in Lab 12 (Outbox Failure).",
+    "principles": ["Integration (Platform)", "TNA-48"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q15",
+    "level": 4,
+    "objective": "Understand Auditor's post-hoc-only boundary.",
+    "question": "Can a pending Auditor assessment block or delay a governed action's execution?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Auditor is strictly post-hoc — never in the critical execution path. It assesses evidence after the fact; it cannot gate or delay real-time execution.",
+    "principles": ["Assurance (Auditor)"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L4-Q16",
+    "level": 4,
+    "objective": "Understand Auditor's evidence-cutoff scoping.",
+    "question": "What does an Auditor assessment's `evidence_cutoff_at` field actually bound?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Nothing — it's cosmetic metadata",
+      "The point in time after which no further evidence is considered for that specific assessment, making the assessment's own scope explicit and reproducible",
+      "The expiration of the Auditor's own credential",
+      "How long the assessment result is cached"
+    ],
+    "correct_answer": "The point in time after which no further evidence is considered for that specific assessment, making the assessment's own scope explicit and reproducible",
+    "explanation": "A bounded evidence cutoff is what makes an assessment reproducible and auditable — evidence appearing after the cutoff is simply out of scope for that particular assessment, by design.",
+    "principles": ["Assurance (Auditor)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q17",
+    "level": 4,
+    "objective": "Understand trust qualification for control results.",
+    "question": "Which of the following control outcomes exist in TNA Auditor's vocabulary?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Only PASS and FAIL",
+      "PASS, PARTIAL, FAIL, NOT_APPLICABLE, INSUFFICIENT_EVIDENCE, and ERROR — a richer vocabulary that never collapses genuine uncertainty into a false PASS",
+      "Only a single numeric risk score with no categorical outcome",
+      "GREEN, YELLOW, RED traffic-light labels only"
+    ],
+    "correct_answer": "PASS, PARTIAL, FAIL, NOT_APPLICABLE, INSUFFICIENT_EVIDENCE, and ERROR — a richer vocabulary that never collapses genuine uncertainty into a false PASS",
+    "explanation": "This richer vocabulary is what allows Auditor to be honest about missing or corrupt evidence rather than forcing every control into a binary pass/fail that would have to guess in ambiguous cases.",
+    "principles": ["Assurance (Auditor)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q18",
+    "level": 4,
+    "objective": "Understand schema-drift's cryptographic basis.",
+    "question": "How does TNA detect that an MCP tool's schema has changed since it was last reviewed?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "By asking the MCP server whether its schema changed",
+      "By comparing a deterministic hash of the tool's current input schema against the hash recorded at the time of the last review/enable — any difference is drift, regardless of whether the change is semantically 'small'",
+      "By checking the tool's version number field, which MCP servers are required to increment",
+      "Schema drift cannot actually be detected"
+    ],
+    "correct_answer": "By comparing a deterministic hash of the tool's current input schema against the hash recorded at the time of the last review/enable — any difference is drift, regardless of whether the change is semantically 'small'",
+    "explanation": "TNA never trusts a self-reported claim from the (untrusted) MCP server. A hash comparison catches any change at all, without needing to judge whether it 'looks' safe.",
+    "principles": ["External Tools (MCP)", "TNA-60"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q19",
+    "level": 4,
+    "objective": "Understand policy_hash's inclusion of schema.",
+    "question": "When a tool is enabled, its `policy_hash` includes the tool's `schema_hash`. Why does this matter for detecting a stale approval?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It doesn't matter — policy_hash and schema_hash are unrelated",
+      "Because a stale policy (approved before drift) is directly detectable by comparing the recorded policy_hash to the tool's CURRENT policy_hash — if the schema changed, the hashes necessarily diverge",
+      "Only to make the hash value longer",
+      "Because MCP requires it"
+    ],
+    "correct_answer": "Because a stale policy (approved before drift) is directly detectable by comparing the recorded policy_hash to the tool's CURRENT policy_hash — if the schema changed, the hashes necessarily diverge",
+    "explanation": "Binding schema_hash into policy_hash makes 'was this approval issued against the current schema' a simple, deterministic hash comparison rather than a fuzzy judgment call.",
+    "principles": ["External Tools (MCP)", "TNA-60"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q20",
+    "level": 4,
+    "objective": "Understand computeBypassAssessment's decision precedence.",
+    "question": "computeBypassAssessment receives `{tnaCredentialChain: true, externalDirectCredential: true}`. What is the result, and why does externalDirectCredential dominate?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "NO_KNOWN_BYPASS, because the TNA chain still works fine",
+      "KNOWN_BYPASS — externalDirectCredential: true always wins, because a known bypass must never be reported as clean high-assurance mediation merely because other things look fine",
+      "UNKNOWN, because the inputs conflict",
+      "The function throws an error for conflicting inputs"
+    ],
+    "correct_answer": "KNOWN_BYPASS — externalDirectCredential: true always wins, because a known bypass must never be reported as clean high-assurance mediation merely because other things look fine",
+    "explanation": "This precedence is a deliberate design choice, matching section 119's requirement that a known bypass never becomes a clean high-assurance readiness result.",
+    "principles": ["External Tools (Client Integration)", "TNA-61"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q21",
+    "level": 4,
+    "objective": "Understand the client credential enforcement boundary.",
+    "question": "TNA-61 states 'Client Credentials Define the Real Enforcement Boundary'. What does this mean in practice?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "TNA can enforce controls even on paths it cannot observe",
+      "TNA's authorization only covers the path that actually goes through it — a client that also holds a separate, direct credential to the same external system has a real bypass TNA cannot see or prevent",
+      "Client credentials are irrelevant to TNA's security model",
+      "TNA automatically revokes any external credential it detects"
+    ],
+    "correct_answer": "TNA's authorization only covers the path that actually goes through it — a client that also holds a separate, direct credential to the same external system has a real bypass TNA cannot see or prevent",
+    "explanation": "This is the exact statement of TNA-61 and the reason computeBypassAssessment exists — to make this limitation an explicit, auditable attestation rather than an implicit, unstated assumption.",
+    "principles": ["External Tools (Client Integration)", "TNA-61"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q22",
+    "level": 4,
+    "objective": "Understand the packaged-path defect history in depth.",
+    "scenario": "During the Volume 10 packaged-execution closure, wiring a real PlatformFacade into the packaged client gateway binary revealed TWO further real defects, not just the missing wiring itself.",
+    "question": "What were those two defects?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "A missing database index and a slow query",
+      "The packaged code used a servicePrincipal (role platform-service) where PlatformGateOrchestrator/PlatformExecutionOrchestrator require a platform-agent principal; and the chosen agent id contained a colon, which Gate's own agent.id schema pattern rejects",
+      "An expired TLS certificate and a DNS misconfiguration",
+      "There were no further defects once the facade was wired"
+    ],
+    "correct_answer": "The packaged code used a servicePrincipal (role platform-service) where PlatformGateOrchestrator/PlatformExecutionOrchestrator require a platform-agent principal; and the chosen agent id contained a colon, which Gate's own agent.id schema pattern rejects",
+    "explanation": "Both defects were only reachable by actually submitting a real HTTP request through the real compiled binary — neither the demo script nor any library-level test had ever exercised this exact code path, which is precisely the failure mode TNA-64 exists to catch.",
+    "principles": ["External Tools (Client Integration)", "TNA-64"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q23",
+    "level": 4,
+    "objective": "Understand why library/demo proof is insufficient for the packaged path.",
+    "question": "A demo script proves Gate, Sentinel, and MCP all work correctly together. Why is this NOT sufficient proof that the packaged production binary enforces the same path?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It is sufficient — nothing more is needed",
+      "Because the demo constructs its own Gate/Sentinel/broker instances directly in-process, exactly like a hand-rolled test harness — it never actually starts the compiled production entrypoint and submits a request to it over real HTTP",
+      "Because demo scripts are written in a different programming language",
+      "Because demos always use fake data"
+    ],
+    "correct_answer": "Because the demo constructs its own Gate/Sentinel/broker instances directly in-process, exactly like a hand-rolled test harness — it never actually starts the compiled production entrypoint and submits a request to it over real HTTP",
+    "explanation": "This exact gap (a correct library and a correct demo, but an unwired production binary) is what TNA-64 was established to prevent from happening again.",
+    "principles": ["External Tools (Client Integration)", "TNA-64"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q24",
+    "level": 4,
+    "objective": "Understand the ExecutionBroker's tool-registry mediation.",
+    "question": "Can an agent invoke a tool handler function directly, bypassing the ExecutionBroker, if it somehow obtains a reference to the handler?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "ToolRegistry.invoke() itself throws 'Handlers are broker-only' — the registered handler is never callable directly from an API surface; only the broker's own redeem() flow can invoke it, after capability verification.",
+    "principles": ["Authority (Gate)"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q25",
+    "level": 4,
+    "objective": "Understand connector tool identity versus governed tool identity.",
+    "question": "Sentinel's expected_tool binding catches a connector that internally reports a different tool identity than it was registered under. What does this protect against?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Nothing — this scenario cannot occur",
+      "A misbehaving or compromised connector claiming to be a different tool than the one Gate actually authorized, since the platform always submits the REGISTERED tool id in its Sentinel observations, never whatever the connector itself claims",
+      "Network latency issues",
+      "Database corruption"
+    ],
+    "correct_answer": "A misbehaving or compromised connector claiming to be a different tool than the one Gate actually authorized, since the platform always submits the REGISTERED tool id in its Sentinel observations, never whatever the connector itself claims",
+    "explanation": "This is exactly the abuse case `buildDriftingConnector` exists to test — a connector's own self-reported identity is never trusted for the Sentinel expected_tool check.",
+    "principles": ["Runtime Control (Sentinel)"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q26",
+    "level": 4,
+    "objective": "Understand the multi-tenant Gate envelope refresh model for the client gateway.",
+    "question": "Since the client gateway serves many tenants whose tool set changes at runtime, how does it keep each tenant's Gate envelope current without a stale, startup-time snapshot?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It restarts the whole gateway process whenever a tool changes",
+      "syncGovernedTenant() re-derives the tenant's Gate agent registration and envelope from LIVE ClientStore state immediately before every governed submission, so tool enable/disable/drift changes take effect on the very next request",
+      "Envelopes are manually updated by an operator once a day",
+      "The client gateway does not support multiple tenants"
+    ],
+    "correct_answer": "syncGovernedTenant() re-derives the tenant's Gate agent registration and envelope from LIVE ClientStore state immediately before every governed submission, so tool enable/disable/drift changes take effect on the very next request",
+    "explanation": "This is the real difference from tna-platform's single fixed-envelope composition — a per-request refresh keeps the multi-tenant client gateway's Gate authority honest against live governed-tool state.",
+    "principles": ["External Tools (Client Integration)", "TNA-64"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q27",
+    "level": 4,
+    "objective": "Understand why a single PlatformFacade cannot serve multiple tenants.",
+    "question": "Why does the client gateway build one PlatformFacade PER TENANT rather than sharing a single instance across all tenants?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Performance optimization only",
+      "PlatformExecutionOrchestrator binds a fixed Sentinel controller/observer principal at construction time, and Sentinel's own authorization model requires that principal's tenant_id to match the session being evaluated — one shared instance would misrepresent every tenant but the one it was built for",
+      "Node.js requires a new object per HTTP request",
+      "There is actually only one shared PlatformFacade instance"
+    ],
+    "correct_answer": "PlatformExecutionOrchestrator binds a fixed Sentinel controller/observer principal at construction time, and Sentinel's own authorization model requires that principal's tenant_id to match the session being evaluated — one shared instance would misrepresent every tenant but the one it was built for",
+    "explanation": "This is a real architectural constraint discovered and documented during the packaged-execution closure — Gate's own orchestrator can be shared (its principal is passed per-call), but the execution orchestrator's Sentinel binding cannot.",
+    "principles": ["External Tools (Client Integration)", "TNA-64"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q28",
+    "level": 4,
+    "objective": "Understand the difference between record-only and governed modes.",
+    "question": "In the client gateway's 'record-only' mode, what real governance actually occurs when a client submits an action?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "The full Gate -> Capability -> Sentinel -> MCP path runs exactly as in governed mode",
+      "None — the action is only recorded in the client store as state:'RECORDED'; no Gate decision, no capability, no Sentinel session, and no MCP call ever occur",
+      "Only Gate authorization runs, skipping Sentinel and MCP",
+      "Only MCP execution runs, skipping Gate and Sentinel"
+    ],
+    "correct_answer": "None — the action is only recorded in the client store as state:'RECORDED'; no Gate decision, no capability, no Sentinel session, and no MCP call ever occur",
+    "explanation": "record-only mode provides no governed execution assurance whatsoever — this is why config.ts refuses it outright when NODE_ENV=production, and why doctor surfaces it as a WARN.",
+    "principles": ["External Tools (Client Integration)", "TNA-64"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q29",
+    "level": 4,
+    "objective": "Understand fail-closed composition-root construction.",
+    "question": "If the client gateway's governed-mode composition (Gate, Sentinel, PlatformStore, Ledger wiring) throws during construction, what happens?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "The gateway falls back to record-only mode automatically",
+      "The process fails to start at all — the error propagates and the process exits before server.listen is ever reached, so there is no window where a partially-wired server accepts requests",
+      "The gateway starts anyway with governed execution silently disabled",
+      "The gateway retries construction indefinitely"
+    ],
+    "correct_answer": "The process fails to start at all — the error propagates and the process exits before server.listen is ever reached, so there is no window where a partially-wired server accepts requests",
+    "explanation": "This fail-closed startup discipline is deliberate: there must be no code path from a construction failure back to an unmonitored/record-only server serving real traffic.",
+    "principles": ["External Tools (Client Integration)", "TNA-56"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q30",
+    "level": 4,
+    "objective": "Understand the operator CLI's forced multi-tenant PlatformFacade resolver pattern.",
+    "question": "Why does apps/tna-operator's PlatformClient assume ONE fixed deployment tenant, while ClientGatewayClient takes an explicit tenant parameter on every call?",
+    "answer_type": "short_answer",
+    "correct_answer": "because apps/tna-platform is deployed one-tenant-per-deployment (Volume 8's own design), while apps/tna-client-gateway is genuinely multi-tenant, so the CLI's clients mirror the real tenancy model of the subsystem each one talks to",
+    "explanation": "This reflects each subsystem's own accepted tenancy model rather than inventing a new one at the CLI layer.",
+    "principles": ["Operator CLI", "Integration (Platform)"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q31",
+    "level": 4,
+    "objective": "Understand assurance separate from academy training.",
+    "question": "TNA-68 is 'Training Must Be Verified'. What specifically does this forbid?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Written documentation of any kind",
+      "Marking a lab or lesson complete purely because a learner clicked 'done' or claimed to have understood it, with no real system-state check behind that claim",
+      "Multiple-choice questions",
+      "This principle does not actually exist"
+    ],
+    "correct_answer": "Marking a lab or lesson complete purely because a learner clicked 'done' or claimed to have understood it, with no real system-state check behind that claim",
+    "explanation": "TNA-68 carries the same 'no self-report' philosophy VAD established for producer work into training: every lab's PASSED status must be backed by a real, deterministic verifier checking real state.",
+    "principles": ["Academy", "TNA-68"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q32",
+    "level": 4,
+    "objective": "Understand assessment authority separation in depth.",
+    "question": "A learner passes the Level 4 Completion Assessment, which includes the Sentinel Termination and Packaged Path labs. Does passing this assessment grant that learner's real operator profile the security-operator role in production?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "No assessment, at any level, ever writes to an OperatorProfile or any production authority record — TNA-69 requires this separation to be structural, not merely a policy statement, and it is enforced by the simple fact that no such code path exists.",
+    "principles": ["Academy", "TNA-69"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L4-Q33",
+    "level": 4,
+    "objective": "Understand why lab pass state must be tamper-resistant.",
+    "question": "If a learner directly edits their local AcademyProgress record to set a lab's status to PASSED without actually running the verifier, what should happen when the assessment is evaluated?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "The assessment accepts the forged status at face value",
+      "The assessment must independently confirm PASSED status carries real verifier evidence/reference — a bare, evidence-less PASSED boolean should be treated as unverified, not accepted",
+      "Forging progress records is impossible so this scenario cannot occur",
+      "The assessment ignores lab status entirely and only checks knowledge score"
+    ],
+    "correct_answer": "The assessment must independently confirm PASSED status carries real verifier evidence/reference — a bare, evidence-less PASSED boolean should be treated as unverified, not accepted",
+    "explanation": "Section 32 requires evidence-backed progress specifically to prevent this class of forgery — a PASSED lab record with no accompanying verifier evidence reference is not trustworthy and should not count toward assessment completion.",
+    "principles": ["Academy", "TNA-68"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L4-Q34",
+    "level": 4,
+    "objective": "Understand the combination rule for level completion.",
+    "question": "Can a learner pass a level's completion assessment using only a high knowledge-question score, with zero labs attempted?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Level completion requires knowledge score >= threshold AND all mandatory labs for that level PASS — no level passes based on multiple-choice answers alone.",
+    "principles": ["Academy", "TNA-68"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L4-Q35",
+    "level": 4,
+    "objective": "Understand the retake model.",
+    "question": "A learner fails the Level 2 assessment on their first attempt, then passes on their second. What happens to the record of the first, failed attempt?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It is deleted and forgotten entirely",
+      "It is preserved — attempt_count and the full attempt history remain, alongside the newly verified completion; retaking never erases a prior attempt's record",
+      "It silently overwrites and hides the fact a failure ever occurred",
+      "The learner is permanently barred from retaking after one failure"
+    ],
+    "correct_answer": "It is preserved — attempt_count and the full attempt history remain, alongside the newly verified completion; retaking never erases a prior attempt's record",
+    "explanation": "Deterministic retake behavior requires the prior failed attempt to not vanish — attempt_count and historical attempts are preserved even after a later success.",
+    "principles": ["Academy"],
+    "difficulty": "medium"
+  }
+]

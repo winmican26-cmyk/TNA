@@ -1,0 +1,449 @@
+[
+  {
+    "question_id": "L3-Q01",
+    "level": 3,
+    "objective": "Understand the container non-root requirement.",
+    "question": "Why does TNA's production container run as a non-root user?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Docker requires it by default",
+      "To reduce the blast radius if the process is compromised — a non-root process cannot trivially escalate to control the host",
+      "It is purely a style convention with no security purpose",
+      "Root containers are slower to start"
+    ],
+    "correct_answer": "To reduce the blast radius if the process is compromised — a non-root process cannot trivially escalate to control the host",
+    "explanation": "TNA-51 ('Secure Code Is Not Secure Deployment') and the container hardening it drove establish non-root execution as a real containment boundary, not a style choice.",
+    "principles": ["Deployment", "TNA-51"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L3-Q02",
+    "level": 3,
+    "objective": "Understand multi-stage Docker builds.",
+    "question": "Why does the TNA Dockerfile use a multi-stage build (a builder stage plus a slimmer runtime stage)?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "To make builds slower for security theater",
+      "So the runtime image ships only compiled output and production dependencies — never the full TypeScript toolchain, dev dependencies, tests, or scripts",
+      "Multi-stage builds are required by Docker syntax",
+      "To support multiple CPU architectures"
+    ],
+    "correct_answer": "So the runtime image ships only compiled output and production dependencies — never the full TypeScript toolchain, dev dependencies, tests, or scripts",
+    "explanation": "The runtime stage deliberately narrows what ships: dist/apps and dist/packages plus production node_modules — no test fixtures, no scripts directory, no dev tooling.",
+    "principles": ["Deployment", "TNA-51"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q03",
+    "level": 3,
+    "objective": "Understand why a new source directory can break the container build.",
+    "scenario": "Volume 11 added a new top-level `academy/` directory. The existing accepted Docker container tests started failing.",
+    "question": "What was the actual root cause?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "A bug in Docker itself",
+      "The Dockerfile's builder stage only copied apps/, packages/, scripts/, and tests/ — never the new academy/ directory the new code now imports from, so the build's own TypeScript compile step failed",
+      "The academy/ directory contained invalid JSON",
+      "Node.js version incompatibility"
+    ],
+    "correct_answer": "The Dockerfile's builder stage only copied apps/, packages/, scripts/, and tests/ — never the new academy/ directory the new code now imports from, so the build's own TypeScript compile step failed",
+    "explanation": "This was a real, found-by-running defect in this exact milestone: adding a new top-level source directory that other code imports from requires updating the Dockerfile's COPY instructions, or the containerized build breaks even though the local dev build succeeds.",
+    "principles": ["Deployment"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q04",
+    "level": 3,
+    "objective": "Understand secret-reference configuration.",
+    "question": "Does TNA's deployment configuration ever accept a raw secret value written directly into a config file?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The accepted secret-reference model resolves actual secret values from environment variables (or a secret-reference indirection) at load time — never a raw secret persisted in a config file on disk.",
+    "principles": ["Deployment", "TNA-55"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L3-Q05",
+    "level": 3,
+    "objective": "Understand fail-closed configuration loading.",
+    "question": "What happens if a required deployment configuration value is missing or insecure (e.g., a weak/default secret) at startup?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "The process starts anyway with a warning logged",
+      "Startup fails outright before anything durable is touched — an invalid or insecure configuration must never reach the point of opening a database file",
+      "A default insecure value is silently substituted",
+      "The process retries indefinitely until a human intervenes"
+    ],
+    "correct_answer": "Startup fails outright before anything durable is touched — an invalid or insecure configuration must never reach the point of opening a database file",
+    "explanation": "TNA-55 ('Configuration Is Executable Authority') is enforced by strict fail-closed config loading — config is validated first, before any durable resource is touched.",
+    "principles": ["Deployment", "TNA-55"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q06",
+    "level": 3,
+    "objective": "Understand TLS responsibility boundaries.",
+    "question": "Does TNA's own accepted deployment architecture terminate TLS itself, or does it assume an external reverse proxy handles it?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "TNA terminates TLS itself inside every app process",
+      "TNA's deployment architecture assumes a trusted reverse proxy in front of it for TLS termination in production — the operator CLI separately refuses a plain http:// endpoint unless devMode is explicit",
+      "TLS is not used anywhere in TNA's design",
+      "Every component requires its own independent certificate"
+    ],
+    "correct_answer": "TNA's deployment architecture assumes a trusted reverse proxy in front of it for TLS termination in production — the operator CLI separately refuses a plain http:// endpoint unless devMode is explicit",
+    "explanation": "The accepted deployment model relies on a reverse proxy for TLS; the operator CLI's own config.ts enforces that a non-https:// endpoint is only ever accepted with an explicit devMode:true opt-in.",
+    "principles": ["Deployment", "Operator CLI"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q07",
+    "level": 3,
+    "objective": "Understand persistent state layout.",
+    "question": "Where does TNA's durable state (SQLite databases) live in the accepted container topology?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Inside the container's own writable layer, lost on every restart",
+      "In a dedicated, externally-mounted data directory (e.g. /data), so it survives container recreation",
+      "In an in-memory cache only",
+      "Uploaded to a third-party cloud service automatically"
+    ],
+    "correct_answer": "In a dedicated, externally-mounted data directory (e.g. /data), so it survives container recreation",
+    "explanation": "The runtime image sets up a non-root-owned /data directory intended to be mounted as a persistent volume — the container itself is disposable, the data directory is not.",
+    "principles": ["Deployment"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L3-Q08",
+    "level": 3,
+    "objective": "Understand backup consistency across components.",
+    "question": "How does TNA guarantee cross-component backup consistency (Gate, Ledger, Platform stores all being from the same consistent moment) for its single-composed-process architecture?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "An in-process quiesce protocol that pauses writes across all components simultaneously",
+      "By requiring the deployment's writer process to be fully stopped before a backup is taken — consistency comes from 'nothing is writing', not from coordination",
+      "By taking backups only once a year",
+      "Consistency is not actually guaranteed"
+    ],
+    "correct_answer": "By requiring the deployment's writer process to be fully stopped before a backup is taken — consistency comes from 'nothing is writing', not from coordination",
+    "explanation": "TNA-57 ('A Backup Set Is a Recovery Boundary') and the stop-required model: createBackup refuses outright while the running lock is held, achieving consistency the simple way.",
+    "principles": ["Deployment", "TNA-57"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q09",
+    "level": 3,
+    "objective": "Understand restore's ordering of checks.",
+    "question": "In what order does restoreBackup perform its checks, and why does the order matter?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It copies data first, then checks validity afterward — order does not matter",
+      "It verifies the backup manifest/hashes, confirms no live process owns the data directory, checks deployment identity, and checks version compatibility — all four BEFORE a single byte is touched, so a rejected restore leaves the existing state fully intact",
+      "It only checks the deployment id and skips hash verification for speed",
+      "It restores immediately and rolls back afterward if a problem is found"
+    ],
+    "correct_answer": "It verifies the backup manifest/hashes, confirms no live process owns the data directory, checks deployment identity, and checks version compatibility — all four BEFORE a single byte is touched, so a rejected restore leaves the existing state fully intact",
+    "explanation": "This ordering is deliberate (section 11 of the recovery-consistency review): never replace live state first and discover incompatibility afterward. A rejected restore must leave the current state completely untouched.",
+    "principles": ["Deployment", "TNA-53"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L3-Q10",
+    "level": 3,
+    "objective": "Understand rollback's definition in TNA.",
+    "question": "What does 'rollback' mean in TNA's accepted deployment model?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "An automatic in-place schema downgrade",
+      "Restoring a known-good backup — the one honest, proven mechanism, rather than an unproven in-place downgrade",
+      "Reverting only the application code while keeping all data unchanged",
+      "TNA does not support any form of rollback"
+    ],
+    "correct_answer": "Restoring a known-good backup — the one honest, proven mechanism, rather than an unproven in-place downgrade",
+    "explanation": "TNA-53's discipline extends to rollback: it is defined as restoring a known-good backup, not an in-place schema downgrade whose correctness cannot be as confidently proven.",
+    "principles": ["Deployment", "TNA-53"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q11",
+    "level": 3,
+    "objective": "Understand upgrade version compatibility checks.",
+    "question": "Before restoring a backup, does TNA check whether the backup's component/schema versions are compatible with the current deployment?",
+    "answer_type": "true_false",
+    "correct_answer": "true",
+    "explanation": "assertVersionCompatible is checked for both component_versions and schema_versions as one of the four mandatory pre-restore checks — an incompatible backup is refused, not blindly applied.",
+    "principles": ["Deployment"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q12",
+    "level": 3,
+    "objective": "Understand the running-lock recovery model.",
+    "question": "A deployment process crashes without releasing its running lock. On restart, what happens?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "The new process refuses to start forever, requiring manual file deletion",
+      "A stale (crashed) lock is recovered automatically by a fresh restart, exactly like the platform's own outbox lease recovery — but a still-live sibling process is never silently overwritten",
+      "The new process silently ignores the lock and starts anyway even if the old process is still running",
+      "Data is automatically wiped and reinitialized"
+    ],
+    "correct_answer": "A stale (crashed) lock is recovered automatically by a fresh restart, exactly like the platform's own outbox lease recovery — but a still-live sibling process is never silently overwritten",
+    "explanation": "The running-lock model distinguishes a genuinely stale lock (safe to reclaim) from a still-live process (must never be overwritten) — the same lease-recovery discipline used elsewhere in the platform.",
+    "principles": ["Deployment"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L3-Q13",
+    "level": 3,
+    "objective": "Understand MCP process environment isolation.",
+    "question": "When TNA spawns a real MCP server child process, does that child process inherit the gateway's entire environment (including TNA's own admin/service secrets)?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "buildChildEnv() constructs the child's environment from only the allowlisted variable names plus a default PATH — never a blanket copy of the gateway process's own environment, which may hold TNA admin/Gate/Ledger secrets.",
+    "principles": ["External Tools (MCP)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q14",
+    "level": 3,
+    "objective": "Understand MCP child-process spawning safety.",
+    "question": "How does TNA spawn MCP server child processes to prevent shell injection?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "By concatenating the executable and arguments into a shell command string",
+      "With shell:false and an explicit argv array — plus a defense-in-depth shell-metacharacter blocklist applied to both the executable and every argument",
+      "By running MCP servers inside a separate virtual machine",
+      "TNA does not spawn MCP servers as processes at all"
+    ],
+    "correct_answer": "With shell:false and an explicit argv array — plus a defense-in-depth shell-metacharacter blocklist applied to both the executable and every argument",
+    "explanation": "shell:false with explicit argv already makes shell metacharacters inert; the additional pattern-based blocklist is deliberate defense in depth, not the primary control.",
+    "principles": ["External Tools (MCP)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q15",
+    "level": 3,
+    "objective": "Understand the Windows executable-path validation defect and fix.",
+    "scenario": "A real deployment issue was found where `C:\\Program Files\\nodejs\\node.exe` was rejected as an MCP server executable path.",
+    "question": "What was the actual defect, and what was the fix?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Windows paths were entirely unsupported and the feature was disabled on Windows",
+      "The original executable-path pattern rejected any path containing a space; the fix accepts a space only when it occurs inside genuine path structure (a slash, backslash, or drive-letter prefix), while still rejecting bare space-separated command-injection-shaped strings like 'bash -c evil'",
+      "The fix was to allow all spaces unconditionally",
+      "The fix required the operator to always avoid spaces in installation paths"
+    ],
+    "correct_answer": "The original executable-path pattern rejected any path containing a space; the fix accepts a space only when it occurs inside genuine path structure (a slash, backslash, or drive-letter prefix), while still rejecting bare space-separated command-injection-shaped strings like 'bash -c evil'",
+    "explanation": "This is a documented real defect from the Volume 10 closure: naive 'no spaces' validation broke real-world Windows paths while a naive 'allow all spaces' fix would have reopened a command-injection-shaped attack surface — the actual fix distinguishes the two by checking for real path structure.",
+    "principles": ["External Tools (MCP)"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L3-Q16",
+    "level": 3,
+    "objective": "Understand client-hosted topology assumptions.",
+    "question": "Does TNA's v0.1 architecture assume a multi-region, highly-available, Kubernetes-orchestrated production topology?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Client-hosted/single-host remains the concrete v0.1 deployment baseline — explicitly not HA, not multi-region, not a Kubernetes production platform. This is documented honestly, not silently assumed away.",
+    "principles": ["Deployment"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L3-Q17",
+    "level": 3,
+    "objective": "Understand readiness vs. liveness in diagnostics.",
+    "question": "A deployment's /live endpoint returns 200, but /ready returns 503. What does this most likely indicate?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "A bug — these should always agree",
+      "The process itself is running, but a mandatory dependency (Gate, Sentinel, Ledger, or the store) is currently unavailable, so it correctly refuses to accept consequential work",
+      "The process needs to be restarted immediately",
+      "/ready is deprecated and should be ignored"
+    ],
+    "correct_answer": "The process itself is running, but a mandatory dependency (Gate, Sentinel, Ledger, or the store) is currently unavailable, so it correctly refuses to accept consequential work",
+    "explanation": "This is precisely TNA-52's intended behavior — liveness and readiness are deliberately independent signals.",
+    "principles": ["Deployment", "TNA-52"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L3-Q18",
+    "level": 3,
+    "objective": "Understand bounded metrics/log design.",
+    "question": "Does TNA's metrics registry add a new label for every unique agent, tenant, or request?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Metrics cardinality is fixed at build time and does not grow with traffic (counters/gauges only, no per-request/per-tenant label) — this bounds resource usage and prevents unbounded metrics-storage growth.",
+    "principles": ["Deployment"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q19",
+    "level": 3,
+    "objective": "Understand deployment identity and version compatibility.",
+    "question": "What is the purpose of `initDeploymentIdentity`/`readDeploymentIdentity`?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "To generate a random display name for the dashboard",
+      "To durably record which specific deployment a data directory belongs to and what version created it, so a restore can be checked against the right deployment and version rather than blindly applied",
+      "To authenticate operators",
+      "It has no functional purpose"
+    ],
+    "correct_answer": "To durably record which specific deployment a data directory belongs to and what version created it, so a restore can be checked against the right deployment and version rather than blindly applied",
+    "explanation": "Deployment identity is what restoreBackup checks against (expectedDeploymentId) to refuse restoring a backup from the wrong deployment without an explicit force override.",
+    "principles": ["Deployment"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q20",
+    "level": 3,
+    "objective": "Understand operational convenience vs. trust.",
+    "question": "TNA-56 is 'Operational Convenience Must Not Manufacture Trust'. Which of the following would violate it?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Requiring an operator to type a tenant id twice before offboarding",
+      "Silently treating a --force flag as though a check had actually passed, to make an operator's day easier",
+      "Failing closed on an invalid configuration",
+      "Logging a warning when a check is skipped for a documented reason"
+    ],
+    "correct_answer": "Silently treating a --force flag as though a check had actually passed, to make an operator's day easier",
+    "explanation": "TNA-56 forbids exactly this pattern: a convenience override must never be dressed up as if the real check succeeded — it must be honestly recorded as an override, not laundered into a false 'passed' status.",
+    "principles": ["Deployment", "TNA-56"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q21",
+    "level": 3,
+    "objective": "Understand component database file naming requirements.",
+    "question": "Why does verifyBackup specifically require a file named exactly `tna-ledger.sqlite` to be present in the manifest?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It's an arbitrary naming preference",
+      "Because the Ledger is the evidence backbone — a backup missing Ledger evidence would be recoverable in name only, silently discarding the durable record of what happened",
+      "SQLite requires this exact filename to function",
+      "This is not actually a real check"
+    ],
+    "correct_answer": "Because the Ledger is the evidence backbone — a backup missing Ledger evidence would be recoverable in name only, silently discarding the durable record of what happened",
+    "explanation": "A backup that could restore application state while silently dropping evidence would defeat the entire purpose of TNA's evidence model — verifyBackup refuses a backup missing the Ledger file outright.",
+    "principles": ["Deployment", "TNA-54"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L3-Q22",
+    "level": 3,
+    "objective": "Understand the operator CLI's profile-based endpoint model.",
+    "question": "Where does an operator profile store the actual bearer token value used to authenticate to a subsystem?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Directly in the profile JSON file, in plaintext",
+      "It doesn't — the profile only references an environment variable NAME; the actual token is resolved from the environment at invocation time",
+      "In an encrypted field inside the profile",
+      "Profiles do not use bearer tokens at all"
+    ],
+    "correct_answer": "It doesn't — the profile only references an environment variable NAME; the actual token is resolved from the environment at invocation time",
+    "explanation": "Profiles are deliberately designed to reference credential env-var names, never raw secrets — resolveCredential reads the real value from the environment only when a command actually runs.",
+    "principles": ["Operator CLI"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L3-Q23",
+    "level": 3,
+    "objective": "Understand deployment version reporting via diagnostics.",
+    "question": "What does `tna doctor`'s `platform.version` check report?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Nothing useful",
+      "Component versions, the config hash, and the deployment id — all pre-vetted as non-secret",
+      "The raw configuration file contents",
+      "All environment variable values"
+    ],
+    "correct_answer": "Component versions, the config hash, and the deployment id — all pre-vetted as non-secret",
+    "explanation": "The platform's /diagnostics route is deliberately narrower than a raw config dump: only component versions, config hash, deployment id, and bounded outbox counts — never a secret or raw request/action input.",
+    "principles": ["Deployment", "Operator CLI"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q24",
+    "level": 3,
+    "objective": "Understand why Lab 11 requires 'stop writers' before backup.",
+    "question": "During Lab 11 (Backup & Restore), why does the first backup attempt fail while the running lock is held?",
+    "answer_type": "short_answer",
+    "correct_answer": "because the accepted backup model refuses to run while a live process owns the data directory, to guarantee cross-component consistency by ensuring nothing is writing during the snapshot",
+    "explanation": "This is exactly what createBackup's isRunningLockActive check enforces, and what the lab is designed to make the learner observe directly.",
+    "principles": ["Deployment", "TNA-57"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q25",
+    "level": 3,
+    "objective": "Understand outbox retry backoff.",
+    "question": "After a failed Ledger delivery attempt, does the outbox dispatcher retry immediately on the very next dispatchOnce() call?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "A failed attempt schedules a real backoff delay (computeBackoffMs, starting around 1 second and doubling up to a cap) before the record becomes eligible again — an immediate re-dispatch will find nothing eligible yet.",
+    "principles": ["Deployment"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L3-Q26",
+    "level": 3,
+    "objective": "Understand dead-letter as a terminal, not transient, state.",
+    "question": "Once an outbox record reaches DEAD_LETTER after exhausting its maxAttempts, will it ever be automatically retried again?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "A dead-lettered record is never claimed again automatically — it requires a real, deliberate manual retry (re-queuing through the ordinary claim/delivery path, preserving original event_id/causal metadata), never a fabricated acknowledgement.",
+    "principles": ["Deployment"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q27",
+    "level": 3,
+    "objective": "Understand deterministic event identity across retries.",
+    "question": "If an outbox record is retried three times before finally succeeding, does each retry attempt generate a new, distinct Ledger event id?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "outboxLedgerEventId(outboxId) is a deterministic function of the outbox record's own id, not a fresh random value per attempt — this guarantees the eventually-delivered event has the exact same identity every retry would have used.",
+    "principles": ["Deployment"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q28",
+    "level": 3,
+    "objective": "Understand the client-gateway container test's process-count expectation.",
+    "scenario": "After running several MCP discovery cycles inside a real container, `docker top` shows exactly two node processes: the gateway itself, and one more.",
+    "question": "Is the second process necessarily an orphan/leak?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The governed-execution connector deliberately caches and reuses one live MCP client per server across calls (clientCache) — that one process is intentional, reaped later by shutdownMcpClients() on SIGTERM, not an orphan.",
+    "principles": ["External Tools (MCP)"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L3-Q29",
+    "level": 3,
+    "objective": "Understand honest scope limitation in Volume 11.",
+    "question": "Does the operator CLI include its own `tna deployment backup`/`tna deployment restore` commands wrapping Volume 9's scripts?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "This is an honestly-documented limitation: Volume 9's own backup/restore scripts are referenced by the runbook but not wrapped by a dedicated tna subcommand in this pass.",
+    "principles": ["Operator CLI", "Deployment"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L3-Q30",
+    "level": 3,
+    "objective": "Understand production TLS refusal in the operator CLI.",
+    "question": "A profile sets `platformUrl: 'http://platform.example.com'` and does not set devMode. What happens when a command using this profile is run?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "The command runs normally over plain HTTP",
+      "Profile loading refuses outright with a clear error — a non-https:// endpoint is never silently accepted without an explicit devMode:true opt-in",
+      "It automatically upgrades the connection to HTTPS",
+      "It only warns, then proceeds anyway"
+    ],
+    "correct_answer": "Profile loading refuses outright with a clear error — a non-https:// endpoint is never silently accepted without an explicit devMode:true opt-in",
+    "explanation": "assertEndpointSecurity in config.ts enforces this exact refusal — there is no silent TLS downgrade path.",
+    "principles": ["Operator CLI"],
+    "difficulty": "medium"
+  }
+]

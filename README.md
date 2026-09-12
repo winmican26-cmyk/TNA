@@ -160,6 +160,24 @@ v0.1 deployment baseline; and no SaaS hosting layer, billing, customer frontend,
 Kubernetes/multi-region infrastructure, or regulatory certification of any kind is claimed (see the
 proof-of-work's "Architectural Acceptance" section for the complete list).
 
+## Volume 11 status — TNA Operator Readiness & Deployment Academy v0.1 — candidate implementation, pending architectural acceptance
+
+TNA Operator Readiness & Deployment Academy (`apps/tna-operator`, `academy/`) asks whether TNA can be
+deployed, operated, diagnosed, and handed over by someone who did not build it. It adds a real operator
+CLI (`tna`) over the already-accepted admin/operator HTTP surfaces of `apps/tna-platform` and
+`apps/tna-client-gateway` — never direct database access — with an explicit 4-role authority model,
+read-only diagnostics (`tna doctor`), a hashed and redacted incident-package collector, a deterministic
+`ClientGoLiveAssessment` and `ClientDeploymentHandoff`, and a full Deployment Academy: all 15 hands-on
+labs run against actual TNA code, a 120-question bank, and 4 deterministic, non-self-reported level
+assessments. Run `npm run demo:operator:v01`, `npm run smoke:operator:v01`, and
+`npm run demo:academy:v01` (a genuine fresh-learner golden path through all 4 levels). See
+[docs/operator/proof-of-work-operator-v0.1.md](docs/operator/proof-of-work-operator-v0.1.md) and
+[docs/operator/operator-requirement-matrix-v0.1.md](docs/operator/operator-requirement-matrix-v0.1.md)
+for full scope and residual risk. **TNA Operator Readiness & Deployment Academy v0.1 — candidate
+implementation, pending architectural acceptance review.** It is not yet tagged. Remaining honest gaps
+(long-form narrative lesson prose per curriculum topic, a handful of Volume 11-only edge cases) are listed
+in the proof-of-work's "Remaining Limitations" — none of them are mandatory-gate items.
+
 ## Repository
 
 ```text

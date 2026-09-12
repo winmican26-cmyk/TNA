@@ -5,5 +5,5 @@
     "rootDir": ".", "outDir": "dist", "declaration": true, "sourceMap": true,
     "skipLibCheck": true, "forceConsistentCasingInFileNames": true
   },
-  "include": ["apps/**/*.ts", "packages/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "academy/**/*.ts"]
 }

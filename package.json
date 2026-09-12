@@ -3,8 +3,8 @@
   "workspaces": ["apps/*", "packages/*"],
   "engines": {"node": ">=24.0.0"},
   "scripts": {
-    "build": "tsc -p tsconfig.json", "typecheck": "tsc --noEmit",
-    "lint": "eslint apps packages tests scripts eslint.config.js", "test": "npm run build && node --test dist/tests/**/*.test.js",
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('node:fs'); for (const name of ['level-1.json','level-2.json','level-3.json','level-4.json']) fs.copyFileSync('academy/question-bank/'+name, 'dist/academy/question-bank/'+name)\"", "typecheck": "tsc --noEmit",
+    "lint": "eslint apps packages tests scripts academy eslint.config.js", "test": "npm run build && node --test dist/tests/**/*.test.js",
     "check": "npm run typecheck && npm run lint && npm test",
     "start": "node dist/apps/tna-gate-api/src/main.js",
     "demo": "npm run build && node dist/scripts/demo.js",
@@ -27,7 +27,14 @@
     "demo:deployment:v01": "npm run build && node dist/scripts/demo-deployment-v01.js",
     "start:client-gateway": "node dist/apps/tna-client-gateway/src/main.js",
     "demo:client-integration:v01": "npm run build && node dist/scripts/demo-client-integration-v01.js",
-    "smoke:client-integration:v01": "npm run build && node dist/scripts/smoke-client-integration-v01.js"
+    "smoke:client-integration:v01": "npm run build && node dist/scripts/smoke-client-integration-v01.js",
+    "tna:cli": "node dist/apps/tna-operator/src/main.js",
+    "demo:operator:v01": "npm run build && node dist/scripts/demo-operator-v01.js",
+    "smoke:operator:v01": "npm run build && node dist/scripts/smoke-operator-v01.js",
+    "test:academy:v01": "npm run build && node --test dist/tests/academy/**/*.test.js",
+    "demo:academy:v01": "npm run build && node dist/scripts/demo-academy-v01.js",
+    "academy:reset": "npm run build && node dist/scripts/academy-reset.js",
+    "academy:verify": "npm run build && node dist/scripts/academy-verify.js"
   },
   "dependencies": {"zod": "4.1.5"},
   "devDependencies": {"typescript": "5.9.2", "@types/node": "24.3.1", "eslint": "9.35.0", "typescript-eslint": "8.42.0", "@eslint/js": "9.35.0"}

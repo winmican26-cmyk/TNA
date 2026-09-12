@@ -1,0 +1,348 @@
+[
+  {
+    "question_id": "L1-Q01",
+    "level": 1,
+    "objective": "Distinguish an agent's own claims from real authorization.",
+    "scenario": "An agent asserts in its own reasoning trace that it 'is allowed' to delete a customer record, but no Authority Envelope action binding covers that action.",
+    "question": "What does TNA do when Gate receives this request?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "ALLOW, because the agent's own stated intent is trusted",
+      "BLOCK, because authority is only what the envelope explicitly declares, never what the agent claims",
+      "HOLD, pending the agent re-explaining its reasoning",
+      "Execute the action and log a warning afterward"
+    ],
+    "correct_answer": "BLOCK, because authority is only what the envelope explicitly declares, never what the agent claims",
+    "explanation": "Authority in TNA is explicit and declared in the Authority Envelope. An agent's own narrative or claimed intent carries no authorizing weight; an action outside the envelope's action_bindings is refused.",
+    "principles": ["Authority (Gate)"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q02",
+    "level": 1,
+    "objective": "Understand the difference between a capability and an authorization decision.",
+    "question": "Why does TNA issue a short-lived capability token AFTER a Gate ALLOW, rather than letting the agent execute directly on the ALLOW decision alone?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "To add unnecessary latency",
+      "Because the capability is the broker-mediated, single-use proof that this specific decision may be redeemed exactly once, decoupling 'may this happen' from 'is this happening now'",
+      "Capabilities are only for billing purposes",
+      "Because Gate cannot store decisions"
+    ],
+    "correct_answer": "Because the capability is the broker-mediated, single-use proof that this specific decision may be redeemed exactly once, decoupling 'may this happen' from 'is this happening now'",
+    "explanation": "The capability is a narrow, short-lived, single-use credential minted specifically for one authorized decision. It ensures execution is always broker-mediated rather than an agent directly invoking a tool on the strength of a decision record alone.",
+    "principles": ["Authority (Gate)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q03",
+    "level": 1,
+    "objective": "Understand policy replacement and approval validity.",
+    "scenario": "An agent received an approval for a specific action while Policy Revision A was active. Before the agent redeems the approval, an administrator reissues an identical-looking envelope, creating Policy Revision B.",
+    "question": "Is the earlier approval still valid under Policy Revision B?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Reissuing a policy invalidates earlier approvals even if the new envelope's contents are identical byte-for-byte. Approvals are bound to the exact policy hash and revision, not merely to matching content.",
+    "principles": ["Authority (Gate)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q04",
+    "level": 1,
+    "objective": "Understand approver role separation.",
+    "question": "Can an administrator credential be used to approve a HOLD action that requires a distinct approver role?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Approval requires a credential matching the exact approver role declared in the envelope. Even an administrator credential cannot substitute for a distinct approver role — this separation exists specifically to prevent one identity from both requesting and approving the same consequential action.",
+    "principles": ["Authority (Gate)", "TNA-65"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q05",
+    "level": 1,
+    "objective": "Understand VAD's separation from Gate.",
+    "question": "An agent's action is Gate-ALLOWed and executes successfully. VAD then rejects the produced artifact. What is the correct combined outcome?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "The action is retroactively marked as never having been authorized",
+      "The execution is undone automatically",
+      "The action's execution outcome remains what it was (it happened), but the platform action does not reach a clean COMPLETED state — verification failure is a distinct fact from authorization or execution",
+      "Gate revokes the agent's credential automatically"
+    ],
+    "correct_answer": "The action's execution outcome remains what it was (it happened), but the platform action does not reach a clean COMPLETED state — verification failure is a distinct fact from authorization or execution",
+    "explanation": "Gate authorizes, execution happens, and VAD verifies — three distinct concerns. A VAD REJECT does not rewrite history about whether Gate authorized correctly or whether execution occurred; it is recorded as its own fact (VERIFICATION_REJECTED), never silently converted into an authorization or execution failure.",
+    "principles": ["Verification (VAD)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q06",
+    "level": 1,
+    "objective": "Understand VAD's runtime-owned budget.",
+    "question": "Can an agent reset its own attempt counter by starting a fresh conversation with the producer model?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "VAD's runtime owns the attempt/cost/clock budget. The agent cannot select or reset attempt numbers, and starting a new conversation does not zero out the aggregate cost or attempt count the runtime is tracking.",
+    "principles": ["Verification (VAD)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q07",
+    "level": 1,
+    "objective": "Understand Ledger's evidence model versus real-world success.",
+    "scenario": "An external action completed successfully (the real-world side effect happened), but its Ledger delivery obligation is still pending after a temporary outbox/Ledger outage.",
+    "question": "What may TNA truthfully claim about this action's evidence?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "That the action is fully audited and compliant, since it clearly succeeded",
+      "That execution succeeded, but evidence delivery is degraded/pending — these are two different facts and neither may substitute for the other",
+      "That the action never happened, since evidence is not yet delivered",
+      "Nothing — the whole record should be deleted until evidence arrives"
+    ],
+    "correct_answer": "That execution succeeded, but evidence delivery is degraded/pending — these are two different facts and neither may substitute for the other",
+    "explanation": "External success and assurance success are different facts (TNA-47). A completed execution with a pending evidence obligation must be reported honestly as both things at once, never collapsed into a single clean 'audited and successful' claim.",
+    "principles": ["Evidence (Ledger)", "TNA-47"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q08",
+    "level": 1,
+    "objective": "Understand Ledger orphan-event rejection.",
+    "question": "Can a CAPABILITY_REDEEMED event exist in the Ledger without a prior CAPABILITY_ISSUED event for the same capability?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The Ledger rejects orphan events that violate the expected causal ordering. A redemption event without a prior issuance event is structurally invalid and refused, not silently accepted.",
+    "principles": ["Evidence (Ledger)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q09",
+    "level": 1,
+    "objective": "Understand Sentinel's role after authorization.",
+    "question": "Gate ALLOWed an action. During execution, the agent's observed behavior drifts from what made the ALLOW acceptable (e.g., it attempts to touch a resource outside its declared scope). What is responsible for detecting and responding to this?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Gate re-runs its authorization check automatically",
+      "Nothing — once ALLOWed, the action runs to completion unmonitored",
+      "Sentinel, which continuously observes runtime behavior and can HOLD or TERMINATE when it diverges from the authorized bounds",
+      "VAD, since this is a verification concern"
+    ],
+    "correct_answer": "Sentinel, which continuously observes runtime behavior and can HOLD or TERMINATE when it diverges from the authorized bounds",
+    "explanation": "Authorization is not a one-time decision. Sentinel exists precisely because observed runtime behavior can diverge from what made the initial authorization acceptable, and it is the component responsible for containment when that happens.",
+    "principles": ["Runtime Control (Sentinel)"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q10",
+    "level": 1,
+    "objective": "Understand Sentinel's observability limitation.",
+    "question": "If Sentinel reports zero violations for a session, does that prove no violation occurred?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "A lack of detected violations is not proof that none occurred — Sentinel can only act on what it actually observes. This is an explicit, documented observability limitation, not a guarantee of completeness.",
+    "principles": ["Runtime Control (Sentinel)"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q11",
+    "level": 1,
+    "objective": "Understand INDETERMINATE outcomes.",
+    "scenario": "An MCP server crashes in the middle of processing a tool call. TNA cannot determine whether the external side effect occurred before the crash.",
+    "question": "What is the correct outcome TNA should record?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "COMPLETED, assuming the call probably succeeded",
+      "FAILED, assuming the call probably did not succeed",
+      "INDETERMINATE — the honest, uncertain outcome, never silently upgraded to success or downgraded to failure",
+      "Retry automatically until a clean answer is obtained"
+    ],
+    "correct_answer": "INDETERMINATE — the honest, uncertain outcome, never silently upgraded to success or downgraded to failure",
+    "explanation": "When TNA genuinely cannot know what happened, the honest answer is INDETERMINATE. Fabricating a guessed success or failure would be a false claim of certainty the system does not actually have. Uncertain external effects must also not be blindly retried.",
+    "principles": ["Runtime Control (Sentinel)", "TNA-48"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q12",
+    "level": 1,
+    "objective": "Understand Auditor's evidence-cutoff model.",
+    "question": "Can the Auditor produce a PASS result for a control when the required evidence is missing or corrupt?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The Auditor never fabricates a pass from absent or corrupt evidence. Missing or corrupt evidence produces an insufficient-evidence or error result for that control, never a manufactured PASS.",
+    "principles": ["Assurance (Auditor)"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q13",
+    "level": 1,
+    "objective": "Understand what Auditor does NOT claim.",
+    "question": "Does a passing TNA Auditor control-assessment result mean the system is ISO 27001 or SOC 2 certified?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "TNA Auditor evaluates configured controls against available evidence — it does not certify legal, regulatory, contractual, or industry compliance of any kind. No ISO 27001, SOC 2, NIST, or similar status is ever claimed by a TNA Auditor result.",
+    "principles": ["Assurance (Auditor)"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q14",
+    "level": 1,
+    "objective": "Understand Platform's orchestration role.",
+    "question": "Does the Platform integration layer implement its own independent authorization logic separate from Gate's?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Platform orchestrates the accepted subsystems — it does not replace or reimplement Gate's authorization logic, Sentinel's containment logic, VAD's verification logic, or Ledger's evidence logic. Integration must not weaken these boundaries.",
+    "principles": ["Integration (Platform)", "TNA-43"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q15",
+    "level": 1,
+    "objective": "Understand correlation as a security property.",
+    "scenario": "A platform action produces a Gate decision, a Sentinel session, and several Ledger events.",
+    "question": "Why must all of these share one correlation id rather than each being independently identified?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It is only for display convenience in a dashboard",
+      "So an independent reviewer can trace the full causal chain of one real action without trusting the system to grade itself, and so no new correlation id can silently replace the original chain",
+      "Correlation ids are optional and rarely used",
+      "To reduce storage costs"
+    ],
+    "correct_answer": "So an independent reviewer can trace the full causal chain of one real action without trusting the system to grade itself, and so no new correlation id can silently replace the original chain",
+    "explanation": "Correlation is a security property (TNA-44): it is what makes independent, non-self-graded reconstruction of a causal chain possible. If correlation could silently drift or be replaced, reconstruction would no longer be trustworthy.",
+    "principles": ["Integration (Platform)", "TNA-44"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q16",
+    "level": 1,
+    "objective": "Understand Deployment's readiness discipline.",
+    "question": "Is a process being 'alive' (answering /live) sufficient evidence that it is safe to accept consequential work?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "TNA-52 ('Readiness Is a Security Decision') establishes that liveness and readiness are deliberately separate. A process can be alive while a mandatory dependency (Gate, Sentinel, Ledger) is unavailable, in which case /ready must fail closed even though /live succeeds.",
+    "principles": ["Deployment", "TNA-52"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q17",
+    "level": 1,
+    "objective": "Understand recovery discipline.",
+    "question": "If a process is killed mid-execution and later restarted, what should the affected action's state be, if its true outcome is unknown?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "COMPLETED, to avoid alarming the operator",
+      "FAILED, to be safe",
+      "INDETERMINATE, honestly reflecting that the outcome is not actually known — recovery must preserve truth, never fabricate success",
+      "The action record should be silently deleted"
+    ],
+    "correct_answer": "INDETERMINATE, honestly reflecting that the outcome is not actually known — recovery must preserve truth, never fabricate success",
+    "explanation": "TNA-53 ('Recovery Must Preserve Truth') requires that restart/restore/rollback never convert uncertain or failed operations into fabricated success.",
+    "principles": ["Deployment", "TNA-53"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q18",
+    "level": 1,
+    "objective": "Understand the backup trust boundary.",
+    "question": "Are backups considered part of TNA's trust boundary, requiring the same rigor as live data?",
+    "answer_type": "true_false",
+    "correct_answer": "true",
+    "explanation": "TNA-54 ('Backups Are Part of the Trust Boundary') establishes that a backup is not a lesser-scrutiny copy — it carries the same evidentiary and security weight as the live system it was taken from.",
+    "principles": ["Deployment", "TNA-54"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q19",
+    "level": 1,
+    "objective": "Understand configuration as executable authority.",
+    "question": "Why does TNA treat configuration values (secrets, deployment tenant bindings, capability keys) with the same rigor as code?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Because configuration files are larger than code files",
+      "Because configuration is executable authority (TNA-55) — a wrong or insecure configuration value can silently grant or withhold real authority just as effectively as a code defect",
+      "It doesn't — configuration is considered low-risk",
+      "Only because of industry convention"
+    ],
+    "correct_answer": "Because configuration is executable authority (TNA-55) — a wrong or insecure configuration value can silently grant or withhold real authority just as effectively as a code defect",
+    "explanation": "TNA-55 establishes that configuration is not a passive setting — it actively determines what authority the system grants, so it must be validated with the same rigor as code, failing closed on anything invalid or insecure.",
+    "principles": ["Deployment", "TNA-55"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q20",
+    "level": 1,
+    "objective": "Understand MCP as external, untrusted code.",
+    "question": "Once TNA has authorized a governed MCP tool call, does it also verify what the MCP server actually does internally while executing that call?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "An MCP server is external code. TNA mediates the interface (which tool, what arguments, under what policy, bounded by timeouts) but does not audit, sandbox, or observe the MCP server's own internal behavior once the process is running.",
+    "principles": ["External Tools (MCP)", "TNA-63"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q21",
+    "level": 1,
+    "objective": "Understand discovery vs. authority for MCP tools.",
+    "question": "When TNA discovers a new tool from a registered MCP server, is that tool immediately usable by a governed agent?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "TNA-58 ('Discovery Does Not Grant Authority'): a newly discovered tool always starts disabled and in DISCOVERED review status. An operator must explicitly classify risk and bind policy before it can ever be invoked.",
+    "principles": ["External Tools (MCP)", "TNA-58"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L1-Q22",
+    "level": 1,
+    "objective": "Understand schema drift as authority drift.",
+    "question": "An MCP tool's input schema changes after an operator already reviewed and approved it. What must happen?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Nothing — the approval still covers the tool by name",
+      "The tool is automatically disabled and marked for policy review — the prior approval described a contract that no longer exists (TNA-60)",
+      "The schema change is silently applied and execution continues",
+      "The MCP server is permanently banned"
+    ],
+    "correct_answer": "The tool is automatically disabled and marked for policy review — the prior approval described a contract that no longer exists (TNA-60)",
+    "explanation": "TNA-60 ('Schema Drift Is Authority Drift') establishes that a tool's schema is part of what was actually reviewed. When it changes, the review is stale — execution under the old approval is refused fail-closed until a fresh review occurs.",
+    "principles": ["External Tools (MCP)", "TNA-60"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q23",
+    "level": 1,
+    "objective": "Understand external tool identity stability.",
+    "question": "Two different MCP servers both expose a tool named 'lookup_customer'. Can one server's misbehaving tool be mistaken for the other's, purely because they share a name?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "TNA-59 ('External Tool Identity Must Be Stable') establishes that a governed tool's platform identity is a runtime-minted, UUID-based id, never the external tool name. Two servers with a same-named tool produce two distinct governed identities.",
+    "principles": ["External Tools (MCP)", "TNA-59"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q24",
+    "level": 1,
+    "objective": "Understand offboarding's dual requirement.",
+    "question": "When a client tenant is offboarded, what must be true of its historical evidence?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It must be deleted along with the tenant's credentials",
+      "It must remain intact and readable even though all future authority for that tenant has been revoked (TNA-62)",
+      "It is archived to cold storage and becomes permanently inaccessible",
+      "Historical evidence is not affected by offboarding because it was never tenant-scoped"
+    ],
+    "correct_answer": "It must remain intact and readable even though all future authority for that tenant has been revoked (TNA-62)",
+    "explanation": "TNA-62 ('Offboarding Must Revoke Future Power Without Erasing History') requires that offboarding cascade revocation of credentials, tools, and servers while historical Ledger and client-action evidence remains fully intact and reconstructible.",
+    "principles": ["External Tools (Client Integration)", "TNA-62"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L1-Q25",
+    "level": 1,
+    "objective": "Understand the packaged-path principle.",
+    "question": "A control is proven correct in a library test and a demo script. Is that sufficient evidence that the real, packaged production binary enforces the same control?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "TNA-64 ('The Packaged Path Is the Real Path') was established specifically because a real gap survived an entire review pass: the packaged production entrypoint had never actually wired the control a library/demo proof had verified. A control is only proven for the packaged binary once a real process is spawned and exercised over real I/O.",
+    "principles": ["External Tools (Client Integration)", "TNA-64"],
+    "difficulty": "hard"
+  }
+]

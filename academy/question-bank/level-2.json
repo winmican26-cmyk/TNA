@@ -1,0 +1,433 @@
+[
+  {
+    "question_id": "L2-Q01",
+    "level": 2,
+    "objective": "Understand the operator CLI's authority boundary.",
+    "question": "Does the `tna` operator CLI ever read or write the platform's or client gateway's SQLite database files directly?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The operator CLI performs no direct database access anywhere. Every read and mutation goes through the already-accepted admin/operator HTTP APIs of the platform and client gateway.",
+    "principles": ["Operator CLI"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q02",
+    "level": 2,
+    "objective": "Understand the operator role model.",
+    "scenario": "An operator profile is configured with role 'operator'.",
+    "question": "Can that profile run `tna tenant offboard`?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Tenant offboarding requires the 'admin' role — a stronger role than 'operator' — because it is a high-risk, hard-to-reverse action.",
+    "principles": ["Operator CLI", "TNA-65"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q03",
+    "level": 2,
+    "objective": "Understand the two layers of operator authority.",
+    "question": "If a `viewer`-role CLI profile is misconfigured to reference an admin-level bearer token, what actually stops a consequential mutation?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Nothing — the CLI-side role check is the only protection and this scenario is a real gap",
+      "The CLI-side role check refuses locally before any HTTP call is made — the underlying server-side token strength doesn't matter for commands the CLI itself never attempts",
+      "The server always re-derives the CLI's declared role from the token automatically",
+      "This scenario cannot occur because tokens contain role information"
+    ],
+    "correct_answer": "The CLI-side role check refuses locally before any HTTP call is made — the underlying server-side token strength doesn't matter for commands the CLI itself never attempts",
+    "explanation": "The CLI's role gate refuses disallowed commands before any network call. However, this is an honestly-documented partial mitigation: a viewer-role profile paired with an admin token would still succeed if the operator directly typed the raw HTTP request outside the CLI — the CLI's own gate does not retroactively weaken the token's real server-side power.",
+    "principles": ["Operator CLI", "TNA-65"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L2-Q04",
+    "level": 2,
+    "objective": "Understand self-approval prevention.",
+    "question": "An operator profile named 'alice' submitted an action that is now HELD. Can 'alice' run `tna hold approve` on that same action?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "`hold approve` compares the resuming operator's profile name against the action's own created_by field and refuses when they match — an additive CLI-side self-approval guard.",
+    "principles": ["Operator CLI", "TNA-65"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q05",
+    "level": 2,
+    "objective": "Understand mandatory reason fields.",
+    "question": "Which of the following commands requires an explicit `--reason` flag?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "tna tenant show",
+      "tna tool list",
+      "tna tenant suspend",
+      "tna status"
+    ],
+    "correct_answer": "tna tenant suspend",
+    "explanation": "Sensitive, consequential commands (tenant suspend, tenant offboard, HIGH/CRITICAL tool enable, hold approve, hold reject) require an explicit --reason, persisted to the local operator audit log. Read-only commands do not.",
+    "principles": ["Operator CLI", "TNA-65"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q06",
+    "level": 2,
+    "objective": "Understand the wrong-tenant safety mechanism.",
+    "question": "Why does `tna tenant offboard` require both `--reason` and `--confirm <exact-tenant-id>`?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "To slow down the operator unnecessarily",
+      "Because offboarding is destructive and hard to reverse; the exact-id confirmation is a fat-finger guard against offboarding the wrong tenant",
+      "Because the API technically requires two separate fields for unrelated reasons",
+      "It doesn't — only --reason is required"
+    ],
+    "correct_answer": "Because offboarding is destructive and hard to reverse; the exact-id confirmation is a fat-finger guard against offboarding the wrong tenant",
+    "explanation": "Tenant offboarding cascades credential revocation and tool/server disabling. Requiring the operator to retype the exact tenant id is a deliberate guard against selecting the wrong tenant under time pressure.",
+    "principles": ["Operator CLI", "TNA-65"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q07",
+    "level": 2,
+    "objective": "Understand credential display versus redaction.",
+    "question": "`tna service create` prints the newly issued service credential in full. Does this violate the CLI's secret-redaction rule?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Redaction is the default for every command, but `service create`/`service rotate` are the one deliberate exception: showing the credential exactly once IS the entire purpose of that command (carried forward from Volume 10's 'shown once' contract). Every other command remains fully redacted, and the CLI's own operating bearer token never appears anywhere.",
+    "principles": ["Operator CLI"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q08",
+    "level": 2,
+    "objective": "Understand `tna doctor`'s scope.",
+    "question": "Can `tna doctor` repair a detected problem automatically (e.g., re-approve a stuck action)?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "`tna doctor` is read-only by construction — it issues only GET requests. Repairing, approving, resetting, or rotating anything always requires a separate, explicit command.",
+    "principles": ["Operator CLI", "TNA-67"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q09",
+    "level": 2,
+    "objective": "Understand doctor's PASS/WARN/FAIL semantics.",
+    "scenario": "`tna doctor` reports the client gateway is running in 'record-only' mode.",
+    "question": "What severity does this produce, and why?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "PASS, because record-only mode is a normal operating mode",
+      "FAIL, because the gateway is completely down",
+      "WARN, because client actions are not governed in this mode — a real risk to flag, but the gateway itself is technically reachable",
+      "UNKNOWN, because doctor cannot detect this"
+    ],
+    "correct_answer": "WARN, because client actions are not governed in this mode — a real risk to flag, but the gateway itself is technically reachable",
+    "explanation": "record-only mode provides no governed execution assurance (TNA-64) and should never be the production posture, so doctor surfaces it as WARN even though the endpoint itself answers normally.",
+    "principles": ["Operator CLI", "TNA-64"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q10",
+    "level": 2,
+    "objective": "Understand outbox dead-letter severity.",
+    "question": "`tna doctor` reports `platform.outbox_dead_letter` count > 0. What does this mean and what severity is assigned?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "WARN — a cosmetic issue with no real consequence",
+      "FAIL — one or more evidence-delivery events have exhausted their retry budget; evidence completeness cannot be relied on until investigated",
+      "PASS — dead letters are expected and harmless",
+      "This check does not exist"
+    ],
+    "correct_answer": "FAIL — one or more evidence-delivery events have exhausted their retry budget; evidence completeness cannot be relied on until investigated",
+    "explanation": "A dead-lettered outbox event means Ledger delivery permanently failed for that event under the current retry policy — a real, non-cosmetic evidence gap.",
+    "principles": ["Operator CLI"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q11",
+    "level": 2,
+    "objective": "Understand action explain's determinism.",
+    "question": "Does `tna action explain` use an LLM to generate its explanation of why an action was blocked or held?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "`action explain` is deterministic and rules-based — a fixed mapping from recorded error codes/Gate-block reasons to operator guidance. No LLM decides what happened.",
+    "principles": ["Operator CLI", "TNA-66"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q12",
+    "level": 2,
+    "objective": "Understand explain's honesty about machine codes.",
+    "question": "When `tna action explain` translates `MCP_SCHEMA_DRIFT` into human guidance, does it hide the original machine code from the operator?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The human-facing explanation is always shown alongside the original machine code, never concealing it — an operator or automation downstream can always see the exact underlying signal.",
+    "principles": ["Operator CLI", "TNA-66"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q13",
+    "level": 2,
+    "objective": "Understand incident package integrity.",
+    "question": "What makes a collected incident package 'tamper-evident'?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It is encrypted with a secret key only TNA support can unlock",
+      "Every included section is individually SHA-256 hashed and the whole manifest is itself hashed — a later dispute about the package's contents can be checked against these hashes",
+      "It is signed by a third-party notary service",
+      "Nothing makes it tamper-evident; it is a plain JSON file"
+    ],
+    "correct_answer": "Every included section is individually SHA-256 hashed and the whole manifest is itself hashed — a later dispute about the package's contents can be checked against these hashes",
+    "explanation": "IncidentPackageManifest v1 binds every included file with a hash, and the manifest itself is hashed over the package id, creation time, tenant scope, and file list — this is what 'tamper-evident' means here, not encryption or third-party signing.",
+    "principles": ["Operator CLI", "TNA-71"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q14",
+    "level": 2,
+    "objective": "Understand incident package tenant scoping.",
+    "question": "Can `tna incident collect --tenant A` accidentally include Tenant B's action history?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Tenant scoping relies on the platform client's fixed single-deployment-tenant binding and the client-gateway client's explicit tenant parameter — the collector never aggregates across tenants and then filters; it only ever queries the one tenant it was given.",
+    "principles": ["Operator CLI", "TNA-71"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q15",
+    "level": 2,
+    "objective": "Understand support artifacts as security artifacts.",
+    "question": "Why does TNA-71 treat an incident package as a security artifact requiring the same rigor as a credential?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Because incident packages are rarely used",
+      "Because logs, diagnostics, and incident packages can expose the system just as surely as production credentials can, and therefore require scoping, redaction, integrity, and access control",
+      "Because they are large files that need compression",
+      "This is not an actual TNA principle"
+    ],
+    "correct_answer": "Because logs, diagnostics, and incident packages can expose the system just as surely as production credentials can, and therefore require scoping, redaction, integrity, and access control",
+    "explanation": "TNA-71 ('Support Artifacts Are Security Artifacts') is exactly this reasoning, established by the incident collector's own redaction, hashing, and tenant-scoping mechanisms.",
+    "principles": ["Operator CLI", "TNA-71"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q16",
+    "level": 2,
+    "objective": "Understand go-live's blocking checks.",
+    "scenario": "A tenant is ACTIVE, has one active service identity, one reachable MCP server, and one enabled tool — but Sentinel is currently unavailable.",
+    "question": "What does `tna go-live assess` report?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "GO, since most checks pass",
+      "GO_WITH_LIMITATIONS, since Sentinel is a minor concern",
+      "NO_GO, because Sentinel availability is a blocking check — high-risk governed execution cannot be safely monitored without it",
+      "INSUFFICIENT_EVIDENCE"
+    ],
+    "correct_answer": "NO_GO, because Sentinel availability is a blocking check — high-risk governed execution cannot be safely monitored without it",
+    "explanation": "Sentinel unavailability is one of go-live's hard blocking checks (alongside deployment/Gate/Ledger readiness, tenant ACTIVE status, and no pending schema-drift review) and forces NO_GO regardless of how healthy everything else looks.",
+    "principles": ["Operator CLI", "TNA-70"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q17",
+    "level": 2,
+    "objective": "Understand go-live and known bypass interaction.",
+    "question": "Can an operator's explicit `--allow-known-bypass` flag ever produce a clean `GO` when the bypass assessment is KNOWN_BYPASS?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Even with explicit operator override, a KNOWN_BYPASS can at best produce GO_WITH_LIMITATIONS — never a clean GO. This is a hard invariant of the go-live logic (section 112).",
+    "principles": ["Operator CLI", "TNA-70"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q18",
+    "level": 2,
+    "objective": "Understand go-live's non-certification statement.",
+    "question": "Does a `GO` result from `tna go-live assess` certify that the deployment is free of security risk?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The go-live assessment carries a mandatory statement: it evaluates configured operational readiness against available system evidence — it does not certify security, regulatory compliance, contractual compliance, or absence of risk.",
+    "principles": ["Operator CLI", "TNA-70"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q19",
+    "level": 2,
+    "objective": "Understand snapshot binding.",
+    "question": "A go-live assessment says GO. The next day, a tool's schema drifts and it's disabled. Does the earlier assessment retroactively change to reflect the new, worse state?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Every assessment is snapshot-hashed at the moment it runs. A later config change cannot retroactively alter what an earlier assessment said — a fresh assessment must be run to get a current answer.",
+    "principles": ["Operator CLI", "TNA-70"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q20",
+    "level": 2,
+    "objective": "Understand the client deployment handoff.",
+    "question": "What does `ClientDeploymentHandoff v1`'s hash actually protect against?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Network eavesdropping during transmission",
+      "A later dispute about exactly what configuration was handed over — the hash lets that be checked against a durable record rather than memory",
+      "It has no real purpose",
+      "It prevents the handoff from ever being read again"
+    ],
+    "correct_answer": "A later dispute about exactly what configuration was handed over — the hash lets that be checked against a durable record rather than memory",
+    "explanation": "The handoff_hash is a SHA-256 over every field in the handoff document — its purpose is settling later disputes about what was actually configured at handoff time.",
+    "principles": ["Operator CLI"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q21",
+    "level": 2,
+    "objective": "Understand real MCP discovery through the CLI.",
+    "question": "After `tna mcp discover`, are the discovered tools immediately usable by a client action?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "Discovered tools land in DISCOVERED status with enabled:false (TNA-58). An operator must run `tna tool enable` with a real risk classification and policy binding before the tool can be invoked.",
+    "principles": ["Operator CLI", "TNA-58"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q22",
+    "level": 2,
+    "objective": "Understand tool-enable role escalation.",
+    "question": "An operator attempts `tna tool enable` with `risk_class: CRITICAL` using an `operator`-role profile. What happens?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It succeeds — any operator can enable any tool",
+      "It is refused — enabling a HIGH/CRITICAL-risk tool requires security-operator or higher, plus an explicit --reason",
+      "It succeeds but silently downgrades the risk class to LOW",
+      "It always requires the client to approve first"
+    ],
+    "correct_answer": "It is refused — enabling a HIGH/CRITICAL-risk tool requires security-operator or higher, plus an explicit --reason",
+    "explanation": "Enabling a critical tool is a high-risk operator action requiring a stronger role and an explicit human reason, matching section 9's requirement.",
+    "principles": ["Operator CLI", "TNA-65"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q23",
+    "level": 2,
+    "objective": "Understand `tna audit run`.",
+    "question": "What does `tna audit run <action-id>` actually invoke?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "A brand-new audit engine built specifically for the operator CLI",
+      "The platform's own already-accepted per-action Auditor integration (POST .../audit), never a reimplementation of Auditor logic",
+      "It directly modifies the action's recorded outcome",
+      "Nothing — it is not yet implemented at all"
+    ],
+    "correct_answer": "The platform's own already-accepted per-action Auditor integration (POST .../audit), never a reimplementation of Auditor logic",
+    "explanation": "The operator CLI is a thin client — `audit run` wraps the platform's existing accepted per-action audit route rather than reimplementing any Auditor logic itself.",
+    "principles": ["Operator CLI", "TNA-43"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q24",
+    "level": 2,
+    "objective": "Understand basic incident response sequencing.",
+    "scenario": "An operator notices client actions are failing unexpectedly.",
+    "question": "What is the recommended first troubleshooting step?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Immediately restore from the most recent backup",
+      "Run `tna action explain <id>` and/or `tna doctor` to understand the real current state before taking any corrective action",
+      "Manually edit the SQLite database to fix the record",
+      "Offboard the affected tenant immediately"
+    ],
+    "correct_answer": "Run `tna action explain <id>` and/or `tna doctor` to understand the real current state before taking any corrective action",
+    "explanation": "The runbook's troubleshooting chapter recommends understanding the real, current, recorded state before taking any corrective or destructive action — never guessing or immediately reaching for the most drastic remedy.",
+    "principles": ["Operator CLI"],
+    "difficulty": "easy"
+  },
+  {
+    "question_id": "L2-Q25",
+    "level": 2,
+    "objective": "Understand the local operator audit log's purpose.",
+    "question": "Why does the operator CLI maintain its own local audit log, separate from Ledger evidence and Ledger's own recorded events?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "It doesn't — the CLI relies entirely on Ledger",
+      "Because it captures the operator's own act of running a command (actor, reason, before/after), which no subsystem's own domain evidence represents — Ledger records what an agent did, this records what an operator told the CLI to do",
+      "For billing purposes only",
+      "It is purely decorative and never actually written to"
+    ],
+    "correct_answer": "Because it captures the operator's own act of running a command (actor, reason, before/after), which no subsystem's own domain evidence represents — Ledger records what an agent did, this records what an operator told the CLI to do",
+    "explanation": "The OperatorAuditLog is additive to (not a replacement for) each subsystem's own accepted evidence — it is the one place the operator's own command history, including refused attempts, is durably recorded.",
+    "principles": ["Operator CLI", "TNA-65"],
+    "difficulty": "hard"
+  },
+  {
+    "question_id": "L2-Q26",
+    "level": 2,
+    "objective": "Understand tenant isolation as structural, not incidental.",
+    "question": "Tenant A's authenticated service credential is used to request Tenant B's tool_id through the real client HTTP API. What happens?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "200 OK, since both tenants exist on the same deployment",
+      "404 NOT_FOUND — the tenant-scoped lookup structurally cannot resolve another tenant's identifier, regardless of the requester's intent",
+      "The request succeeds but is logged as suspicious",
+      "500 Internal Server Error"
+    ],
+    "correct_answer": "404 NOT_FOUND — the tenant-scoped lookup structurally cannot resolve another tenant's identifier, regardless of the requester's intent",
+    "explanation": "Every ClientStore query is tenant-scoped by construction; a cross-tenant id lookup is not merely filtered after the fact, it structurally cannot resolve, always returning NOT_FOUND.",
+    "principles": ["Operator CLI", "TNA-61"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q27",
+    "level": 2,
+    "objective": "Understand backup consistency's stop-required model.",
+    "question": "Can a backup be created while a deployment's running lock is still held (i.e., the deployment is 'live')?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "The accepted backup model refuses outright if the running lock is active — cross-component consistency for this architecture is achieved by requiring writers to be stopped, not by an in-process quiesce protocol.",
+    "principles": ["Deployment", "TNA-54"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q28",
+    "level": 2,
+    "objective": "Understand backup manifest verification.",
+    "question": "What does `verifyBackup` check before a restore is allowed to proceed?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "Only that the manifest.json file exists",
+      "Every listed file's hash and size against the manifest, that the manifest itself is well-formed, and that the required Ledger database file is present — a partial or tampered backup is rejected outright",
+      "Nothing — restore always proceeds regardless of backup validity",
+      "Only the deployment id, ignoring file contents"
+    ],
+    "correct_answer": "Every listed file's hash and size against the manifest, that the manifest itself is well-formed, and that the required Ledger database file is present — a partial or tampered backup is rejected outright",
+    "explanation": "verifyBackup recomputes every listed file's hash and confirms it matches the manifest; a missing manifest, missing file, size/hash mismatch, or missing Ledger database are all rejected, never partially trusted.",
+    "principles": ["Deployment", "TNA-53"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q29",
+    "level": 2,
+    "objective": "Understand client bypass modeling in practice.",
+    "scenario": "A client's agent uses TNA-issued credentials for MCP tool calls, but also separately holds a direct API key to the same backend system for a legacy integration.",
+    "question": "What should CAN_CLIENT_BYPASS_TNA report for this client?",
+    "answer_type": "multiple_choice",
+    "options": [
+      "NO_KNOWN_BYPASS, because the TNA credential chain is used correctly",
+      "KNOWN_BYPASS, because the direct external credential is a real, documented path around TNA's mediation regardless of how correctly the TNA path itself is used",
+      "UNKNOWN, since this cannot be determined",
+      "This scenario is impossible in practice"
+    ],
+    "correct_answer": "KNOWN_BYPASS, because the direct external credential is a real, documented path around TNA's mediation regardless of how correctly the TNA path itself is used",
+    "explanation": "computeBypassAssessment: externalDirectCredential: true always wins — a known bypass can never be reported as clean mediation merely because the TNA-issued chain also happens to work correctly.",
+    "principles": ["Operator CLI", "TNA-61"],
+    "difficulty": "medium"
+  },
+  {
+    "question_id": "L2-Q30",
+    "level": 2,
+    "objective": "Understand what training does NOT grant.",
+    "question": "A learner completes every Level 2 lab and passes the Level 2 assessment. Does this change what their real operator profile is permitted to do in production?",
+    "answer_type": "true_false",
+    "correct_answer": "false",
+    "explanation": "TNA-69 ('Training Authority and Production Authority Are Separate') — Academy progress state has no code path that reads or writes an OperatorProfile's role. Completing training never automatically grants production privileges.",
+    "principles": ["Academy", "TNA-69"],
+    "difficulty": "easy"
+  }
+]
