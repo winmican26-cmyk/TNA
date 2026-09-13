@@ -223,4 +223,13 @@ export const api = {
 
   organization: () => request<Record<string, unknown>>('GET', '/api/organization'),
   readiness: () => request<{ tenant_id: string; readiness: string; checks: readonly { check: string; passed: boolean; detail: string }[] }>('GET', '/api/readiness'),
+
+  // Signup / password reset — no email integration exists anywhere in this project; both flows are real,
+  // admin-issued, single-use, expiring tokens delivered out of band by the admin, never invented email
+  // delivery. See apps/tna-control-center/src/session-store.ts for the full design rationale.
+  users: () => request<{ items: readonly { username: string; role: string; created_at: string; disabled: boolean }[] }>('GET', '/api/users'),
+  inviteUser: (username: string, role: string) => request<{ token: string; expires_at: string }>('POST', '/api/users/invite', { username, role }),
+  createPasswordResetToken: (username: string) => request<{ token: string; expires_at: string }>('POST', `/api/users/${encodeURIComponent(username)}/reset-password-token`),
+  signup: (token: string, password: string) => request<{ username: string; tenant_id: string; role: string }>('POST', '/api/signup', { token, password }),
+  resetPassword: (token: string, password: string) => request<{ reset: true }>('POST', '/api/reset-password', { token, password }),
 };

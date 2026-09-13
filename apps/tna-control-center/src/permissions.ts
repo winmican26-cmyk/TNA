@@ -26,6 +26,7 @@ export const CLIENT_PERMISSIONS = [
   'identity.read', 'identity.create', 'identity.suspend', 'credential.rotate',
   'improvement.read', 'improvement.approve', 'improvement.promote', 'improvement.rollback',
   'organization.read', 'organization.manage',
+  'user.invite', 'user.reset_password',
 ] as const;
 export type ClientPermission = typeof CLIENT_PERMISSIONS[number];
 
@@ -48,7 +49,10 @@ const READ_PERMISSIONS: readonly ClientPermission[] = [
  * - `client-admin`: reviewer's full set plus tenant administration (tool enable/disable REQUESTS —
  *   never a guaranteed grant, since Platform itself may still require higher, operator-only authority;
  *   see `platform-client.ts`'s operator-token routes — identity lifecycle, credential rotation,
- *   organization management) and improvement approve/promote/rollback. `client-admin` is explicitly NOT
+ *   organization management), improvement approve/promote/rollback, and inviting/resetting-the-password-of
+ *   OTHER CONTROL-CENTER HUMAN USERS in their own tenant (`user.invite`/`user.reset_password` — a distinct
+ *   resource from `identity.*`, which governs Client Gateway SERVICE identities, not human logins).
+ *   `client-admin` is explicitly NOT
  *   given any TNA-operator-only capability (foundation-review section 15's closing rule) — there is no
  *   permission in this matrix, at any role, that maps to an operator-only Platform/Gate/Sentinel/Ledger
  *   /Improvement-Governor route.
@@ -61,6 +65,7 @@ const ROLE_PERMISSIONS: Readonly<Record<ClientRole, ReadonlySet<ClientPermission
     ...READ_PERMISSIONS, 'action.approve', 'action.reject', 'action.terminate', 'incident.acknowledge',
     'tool.enable.request', 'tool.disable.request', 'identity.create', 'identity.suspend', 'credential.rotate',
     'improvement.approve', 'improvement.promote', 'improvement.rollback', 'organization.manage',
+    'user.invite', 'user.reset_password',
   ]),
 };
 

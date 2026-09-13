@@ -2,9 +2,13 @@
 
 ## Signing in
 
-Your TNA operator provisions your username, initial password, tenant, and role out of band (there is no
-self-service signup). Sign in at the Control Center's URL. The banner at the top of the screen always shows
-the real environment (`DEVELOPMENT`/`STAGING`/`PRODUCTION`) — check it before approving anything.
+Your organization's client-admin creates your account and sends you a one-time signup link (`/signup?token=...`),
+or your TNA operator provisions you directly out of band. There is still no open, public signup — every
+account is tied to a specific tenant and role chosen by whoever created it; a signup link only ever lets you
+choose your own password. If you forget your password, ask a client-admin on your team for a reset link
+(`/reset-password?token=...`) — this console sends no email itself, so the link is delivered to you however
+your admin normally reaches you. Sign in at the Control Center's URL. The banner at the top of the screen
+always shows the real environment (`DEVELOPMENT`/`STAGING`/`PRODUCTION`) — check it before approving anything.
 
 ## What you can do, by role
 
@@ -41,6 +45,9 @@ backend, not just hidden in your browser.
 - **Onboarding**: a guided walkthrough. A few steps (registering new MCP servers, submitting a test action,
   bypass assessment) are explicitly marked unavailable in this console — they require your TNA operator or
   your own agent's credentials.
+- **Team** (client-admin only): invite a teammate (fixing their username and role) and get a one-time
+  signup link, or generate a one-time password-reset link for an existing teammate. Copy the link and
+  deliver it yourself — no email is sent by this console.
 
 ## What this console will never do
 

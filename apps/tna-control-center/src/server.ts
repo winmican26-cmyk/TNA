@@ -15,7 +15,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
-import { ControlCenterError, CLIENT_ROLES, type ControlCenterSession, type TenantRegistryEntry } from './schema.js';
+import { ControlCenterError, CLIENT_ROLES, type ClientRole, type ControlCenterSession, type TenantRegistryEntry } from './schema.js';
 import { ControlCenterSessionStore } from './session-store.js';
 import type { TenantRegistry } from './tenant-registry.js';
 import { PlatformProxyClient } from './platform-client.js';
@@ -244,6 +244,22 @@ export function createControlCenterServer(deps: ControlCenterDeps) {
         setSessionCookies(res, session.session_id, session.csrf_token, deps.cookieSecure, 8 * 3600);
         return send(res, 200, { user: { username: user.username, tenant_id: user.tenant_id, role: user.role } });
       }
+      // Public, pre-session routes (mirrors login's own lack of a CSRF check — there is no session cookie
+      // yet for CSRF's threat model to apply to). Both redeem a real, admin-issued, single-use, expiring
+      // token; neither ever lets the caller choose their own tenant or role.
+      if (req.method === 'POST' && path === '/api/signup') {
+        const input = await body(req);
+        if (typeof input.token !== 'string' || typeof input.password !== 'string') throw new HttpError(400, 'token and password are required');
+        const user = deps.sessions.redeemSignupInvite(input.token, input.password);
+        return send(res, 201, { username: user.username, tenant_id: user.tenant_id, role: user.role });
+      }
+      if (req.method === 'POST' && path === '/api/reset-password') {
+        const input = await body(req);
+        if (typeof input.token !== 'string' || typeof input.password !== 'string') throw new HttpError(400, 'token and password are required');
+        deps.sessions.redeemPasswordReset(input.token, input.password);
+        return send(res, 200, { reset: true });
+      }
+
       if (req.method === 'POST' && path === '/api/session/logout') {
         const cookies = parseCookies(req);
         const sessionId = cookies[SESSION_COOKIE];
@@ -588,6 +604,35 @@ export function createControlCenterServer(deps: ControlCenterDeps) {
         if (stateVersion === undefined) throw new HttpError(400, 'state_version is required');
         const { config, client } = requireClientGateway(deps);
         return send(res, 200, await client.revokeServiceIdentity(config, session.tenant_id, decodeURIComponent(identityRevokeMatch[1]!), stateVersion));
+      }
+
+      // -----------------------------------------------------------------------------------
+      // Control-Center human user management (signup invites, admin-mediated password reset). A distinct
+      // resource from the identity.* routes above, which govern Client Gateway SERVICE identities, not
+      // human logins to this console. Every route resolves its tenant from `session.tenant_id` — an admin
+      // can never invite/reset a user into a tenant other than their own.
+      // -----------------------------------------------------------------------------------
+      if (req.method === 'GET' && path === '/api/users') {
+        requirePermission(session, 'user.invite');
+        const users = deps.sessions.listUsers(session.tenant_id);
+        return send(res, 200, { items: users.map(u => ({ username: u.username, role: u.role, created_at: u.created_at, disabled: u.disabled })) });
+      }
+      if (req.method === 'POST' && path === '/api/users/invite') {
+        requirePermission(session, 'user.invite');
+        requireCsrf(req, session);
+        const input = await body(req);
+        if (typeof input.username !== 'string' || input.username.length === 0) throw new HttpError(400, 'username is required');
+        if (typeof input.role !== 'string' || !(CLIENT_ROLES as readonly string[]).includes(input.role)) throw new HttpError(400, `role must be one of: ${CLIENT_ROLES.join(', ')}`);
+        const invite = deps.sessions.createSignupInvite(session.tenant_id, input.username, input.role as ClientRole);
+        return send(res, 201, invite);
+      }
+      const resetTokenMatch = path.match(/^\/api\/users\/([^/]+)\/reset-password-token$/);
+      if (req.method === 'POST' && resetTokenMatch) {
+        requirePermission(session, 'user.reset_password');
+        requireCsrf(req, session);
+        const username = decodeURIComponent(resetTokenMatch[1]!);
+        const resetToken = deps.sessions.createPasswordResetToken(session.tenant_id, username);
+        return send(res, 201, resetToken);
       }
 
       throw new HttpError(404, 'Not found');

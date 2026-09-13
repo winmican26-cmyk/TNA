@@ -26,7 +26,12 @@ actual control (proven directly in `tests/control-center/role-matrix.test.ts` an
 | `client-viewer` | Everything (`action.read`, `evidence.read`, `audit.read`, `incident.read`, `tool.read`, `connection.read`, `identity.read`, `improvement.read`, `organization.read`) | None |
 | `client-auditor` | Same reads as viewer | `incident.acknowledge` only (not an authority-changing mutation) |
 | `client-reviewer` | Same reads as viewer | `action.approve`, `action.reject`, `action.terminate` |
-| `client-admin` | Same reads as viewer | Reviewer's set, plus `tool.enable.request`, `tool.disable.request`, `identity.create`, `identity.suspend`, `credential.rotate`, `improvement.approve`, `improvement.promote`, `improvement.rollback`, `organization.manage` |
+| `client-admin` | Same reads as viewer | Reviewer's set, plus `tool.enable.request`, `tool.disable.request`, `identity.create`, `identity.suspend`, `credential.rotate`, `improvement.approve`, `improvement.promote`, `improvement.rollback`, `organization.manage`, `user.invite`, `user.reset_password` |
+
+`user.invite`/`user.reset_password` govern Control-Center HUMAN logins (`ControlCenterUser`) — a distinct
+resource from `identity.*`, which governs Client Gateway SERVICE identities. Both are real, admin-issued,
+single-use, expiring tokens (no email integration exists anywhere in this project); see
+`session-store.ts` for the full design.
 
 **`client-admin` never receives a TNA-operator-only capability.** There is no permission in this matrix, at
 any role, that maps to an operator-only Platform/Gate/Sentinel/Ledger/Improvement-Governor route (Platform's

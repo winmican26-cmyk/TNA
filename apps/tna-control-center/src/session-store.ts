@@ -38,6 +38,28 @@ function verifyPassword(password: string, stored: string): boolean {
 
 const SESSION_TTL_MS = 8 * 3600_000; // 8 hours — a real, bounded, server-enforced expiry (section 17).
 
+/**
+ * Signup / password-reset tokens. Design decision (supersedes the earlier "no self-service signup" note):
+ * this project has no email-sending capability anywhere and none is added here — inventing one would mean
+ * either fabricating delivery that never actually happens, or taking on a real external service dependency
+ * with credentials nobody has provided. Instead, both flows are ADMIN-MEDIATED and OUT-OF-BAND, mirroring
+ * the "credential shown once" pattern already established for service-identity issuance
+ * (`packages/client-schema`'s `issueCredential`):
+ *   - Signup: a `client-admin` names the exact username+role for a NEW account in their own tenant and
+ *     receives a real, single-use, expiring token shown exactly once. The admin still decides WHO gets an
+ *     account and WHAT role/tenant it has — self-service is limited to the invitee choosing their own
+ *     password, never their own tenant or role.
+ *   - Password reset: a `client-admin` names an EXISTING username in their own tenant and receives a real,
+ *     single-use, expiring token, shown once, to deliver via their own channel.
+ * A token is a bare `randomBytes(32)` hex string — the same entropy as a session id — so brute-forcing one
+ * is infeasible regardless of rate limiting, and it is looked up by exact value (not hashed), matching this
+ * store's own existing session-id convention (SQLite file access is already the real trust boundary here).
+ */
+const SIGNUP_TOKEN_TTL_MS = 7 * 24 * 3600_000; // 7 days — long enough to actually deliver out of band.
+const RESET_TOKEN_TTL_MS = 3600_000; // 1 hour — shorter-lived, since a reset is a more sensitive action.
+export type ControlCenterTokenKind = 'SIGNUP' | 'PASSWORD_RESET';
+interface TokenRow { token: string; kind: ControlCenterTokenKind; tenant_id: string; username: string; role: string | null; created_at: string; expires_at: string; used_at: string | null }
+
 export class ControlCenterSessionStore {
   private readonly db: DatabaseSync;
   private readonly clock: () => number;
@@ -61,13 +83,18 @@ export class ControlCenterSessionStore {
       CREATE TABLE IF NOT EXISTS control_center_incident_acknowledgments (
         tenant_id TEXT NOT NULL, signature TEXT NOT NULL, acknowledged_by TEXT NOT NULL, acknowledged_at TEXT NOT NULL,
         PRIMARY KEY (tenant_id, signature));
+      CREATE TABLE IF NOT EXISTS control_center_tokens (
+        token TEXT PRIMARY KEY, kind TEXT NOT NULL, tenant_id TEXT NOT NULL, username TEXT NOT NULL, role TEXT,
+        created_at TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT);
     `);
   }
 
   private now(): string { return new Date(this.clock()).toISOString(); }
 
-  /** Real user provisioning — v0.1 has no self-service signup; a trusted operator/admin process creates
-   * client users out of band (mirrors how every other TNA service identity is provisioned). */
+/** Real, direct user provisioning by a trusted operator/CLI process that already knows the password (e.g.
+   * `scripts/control-center-create-user.ts`). The BROWSER-facing path for a `client-admin` to provision a
+   * teammate is the invite flow below (`createSignupInvite`/`redeemSignupInvite`), which never requires the
+   * admin to know or transmit the new user's password at all. */
   public createUser(tenantId: string, username: string, password: string, role: ClientRole): ControlCenterUser {
     if (!(CLIENT_ROLES as readonly string[]).includes(role)) throw new ControlCenterError('INVALID_INPUT', `role must be one of: ${CLIENT_ROLES.join(', ')}`);
     if (password.length < 12) throw new ControlCenterError('INVALID_INPUT', 'password must be at least 12 characters');
@@ -90,6 +117,84 @@ export class ControlCenterSessionStore {
   public setDisabled(userId: string, disabled: boolean): void {
     const changed = this.db.prepare('UPDATE control_center_users SET disabled=? WHERE user_id=?').run(disabled ? 1 : 0, userId);
     if (changed.changes !== 1) throw new ControlCenterError('NOT_FOUND', `No user ${userId}`);
+  }
+
+  /** For the "reset password" admin UI: real users of the admin's OWN tenant only — a route handler must
+   * always pass `session.tenant_id` here, never a caller-supplied tenant. */
+  public listUsers(tenantId: string): readonly ControlCenterUser[] {
+    const rows = this.db.prepare('SELECT * FROM control_center_users WHERE tenant_id=? ORDER BY created_at').all(tenantId) as unknown as UserRow[];
+    return rows.map(rowToUser);
+  }
+  private findUserByUsernameInTenant(tenantId: string, username: string): UserRow | undefined {
+    return this.db.prepare('SELECT * FROM control_center_users WHERE tenant_id=? AND username=?').get(tenantId, username) as unknown as UserRow | undefined;
+  }
+
+  /** A `client-admin` names the exact username+role for a brand-new account in their OWN tenant (the
+   * caller must pass `session.tenant_id`, never a client-supplied one). Real, single-use, expiring token —
+   * returned once; there is no way to retrieve it again after this call, matching `issueCredential()`'s own
+   * shown-once discipline. Throws if the username is already taken (checked now, and re-checked atomically
+   * at redemption in case of a race). */
+  public createSignupInvite(tenantId: string, username: string, role: ClientRole): { readonly token: string; readonly expires_at: string } {
+    if (!(CLIENT_ROLES as readonly string[]).includes(role)) throw new ControlCenterError('INVALID_INPUT', `role must be one of: ${CLIENT_ROLES.join(', ')}`);
+    // `username` carries a GLOBAL unique index (not per-tenant) — checked here up front for a fast, clear
+    // error; `createUser()` at redemption time is the real, race-safe enforcement (its own INSERT relies on
+    // that same unique index and throws CONFLICT on a collision regardless of what this check saw).
+    if (this.db.prepare('SELECT 1 FROM control_center_users WHERE username=?').get(username)) {
+      throw new ControlCenterError('CONFLICT', `username ${username} is already taken`);
+    }
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(this.clock() + SIGNUP_TOKEN_TTL_MS).toISOString();
+    this.db.prepare('INSERT INTO control_center_tokens VALUES (?,?,?,?,?,?,?,NULL)').run(token, 'SIGNUP', tenantId, username, role, this.now(), expiresAt);
+    return { token, expires_at: expiresAt };
+  }
+
+  /** A `client-admin` names an EXISTING username in their OWN tenant. Real, single-use, expiring token,
+   * returned once. Deliberately does not confirm or deny whether a username exists via a different
+   * response shape beyond the real `NOT_FOUND` — this is an authenticated admin action, not a public
+   * "forgot password" form, so username enumeration by an anonymous attacker is not this route's threat
+   * model; the admin already knows their own team's usernames. */
+  public createPasswordResetToken(tenantId: string, username: string): { readonly token: string; readonly expires_at: string } {
+    const user = this.findUserByUsernameInTenant(tenantId, username);
+    if (!user) throw new ControlCenterError('NOT_FOUND', `No user ${username} in this tenant`);
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(this.clock() + RESET_TOKEN_TTL_MS).toISOString();
+    this.db.prepare('INSERT INTO control_center_tokens VALUES (?,?,?,?,NULL,?,?,NULL)').run(token, 'PASSWORD_RESET', tenantId, username, this.now(), expiresAt);
+    return { token, expires_at: expiresAt };
+  }
+
+  private consumeToken(token: string, kind: ControlCenterTokenKind): TokenRow {
+    const row = this.db.prepare('SELECT * FROM control_center_tokens WHERE token=?').get(token) as unknown as TokenRow | undefined;
+    if (!row || row.kind !== kind) throw new ControlCenterError('INVALID_INPUT', 'This link is invalid.');
+    if (row.used_at !== null) throw new ControlCenterError('INVALID_INPUT', 'This link has already been used.');
+    if (Date.parse(row.expires_at) <= this.clock()) throw new ControlCenterError('INVALID_INPUT', 'This link has expired.');
+    // Marked used BEFORE the caller acts on it, and only one row can ever match `used_at IS NULL` for a
+    // given token — a concurrent double-redemption race is closed by this UPDATE's own atomicity (SQLite
+    // serializes writes), not merely by application-level checking above.
+    const changed = this.db.prepare('UPDATE control_center_tokens SET used_at=? WHERE token=? AND used_at IS NULL').run(this.now(), token);
+    if (changed.changes !== 1) throw new ControlCenterError('INVALID_INPUT', 'This link has already been used.');
+    return row;
+  }
+
+  /** Redeems a real, admin-issued signup invite: the invitee chooses only their password — tenant and role
+   * were fixed by the admin at invite time and cannot be influenced here. */
+  public redeemSignupInvite(token: string, password: string): ControlCenterUser {
+    const row = this.consumeToken(token, 'SIGNUP');
+    return this.createUser(row.tenant_id, row.username, password, row.role as ClientRole);
+  }
+
+  /** Redeems a real, admin-issued password-reset token. Real server-side session invalidation: every
+   * existing session for this user is destroyed — a credential change must not leave old sessions (issued
+   * under the OLD password) still valid. This is a narrow, event-triggered action distinct from the
+   * deliberately-declined general "log out all other sessions" feature (foundation-review section 4): it
+   * fires only as a consequence of the credential itself changing, not as a standalone capability. */
+  public redeemPasswordReset(token: string, newPassword: string): void {
+    const row = this.consumeToken(token, 'PASSWORD_RESET');
+    if (newPassword.length < 12) throw new ControlCenterError('INVALID_INPUT', 'password must be at least 12 characters');
+    const user = this.findUserByUsernameInTenant(row.tenant_id, row.username);
+    if (!user) throw new ControlCenterError('NOT_FOUND', 'This account no longer exists.');
+    const passwordHash = hashPassword(newPassword);
+    this.db.prepare('UPDATE control_center_users SET password_hash=? WHERE user_id=?').run(passwordHash, user.user_id);
+    this.db.prepare('DELETE FROM control_center_sessions WHERE user_id=?').run(user.user_id);
   }
 
   /** Real credential verification — never a stub, never a hardcoded ALLOW. Returns `null` on any failure

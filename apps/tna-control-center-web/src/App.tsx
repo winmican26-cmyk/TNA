@@ -3,6 +3,9 @@ import { NavLink, Route, Routes, Navigate, useNavigate } from 'react-router-dom'
 import { api, type SessionUser } from './api.js';
 import { useNotifications } from './notifications.js';
 import Login from './pages/Login.js';
+import Signup from './pages/Signup.js';
+import ResetPassword from './pages/ResetPassword.js';
+import Team from './pages/Team.js';
 import Dashboard from './pages/Dashboard.js';
 import Actions from './pages/Actions.js';
 import ActionDetail from './pages/ActionDetail.js';
@@ -57,7 +60,18 @@ export default function App() {
   useEffect(refresh, [refresh]);
 
   if (state.kind === 'loading') return <div className="login-shell"><span className="muted">Loading…</span></div>;
-  if (state.kind === 'anonymous') return <Login onLoggedIn={refresh} />;
+  if (state.kind === 'anonymous') {
+    // `/signup` and `/reset-password` must be reachable with NO session at all — they are how one gets
+    // created/changed in the first place. Both still require a real, admin-issued token in the URL; there
+    // is no route here that creates or changes an account without one.
+    return (
+      <Routes>
+        <Route path="/signup" element={<Signup onSignedUp={refresh} />} />
+        <Route path="/reset-password" element={<ResetPassword onReset={refresh} />} />
+        <Route path="*" element={<Login onLoggedIn={refresh} />} />
+      </Routes>
+    );
+  }
 
   const handleLogout = () => { api.logout().finally(() => setState({ kind: 'anonymous' })); };
 
@@ -83,6 +97,7 @@ export default function App() {
           <NavLink to="/incidents">Incidents</NavLink>
           <NavLink to="/identities">Identities</NavLink>
           <NavLink to="/onboarding">Onboarding</NavLink>
+          {state.user.permissions?.includes('user.invite') && <NavLink to="/team">Team</NavLink>}
           <NotificationBell permissions={state.user.permissions ?? []} />
           <div style={{ padding: '16px 20px 4px', fontSize: 12 }} className="muted">
             {state.user.username} · {state.user.role}<br />tenant: {state.user.tenant_id}
@@ -103,6 +118,7 @@ export default function App() {
             <Route path="/incidents" element={<Incidents role={state.user.role} />} />
             <Route path="/identities" element={<Identities role={state.user.role} />} />
             <Route path="/onboarding" element={<Onboarding role={state.user.role} />} />
+            <Route path="/team" element={<Team role={state.user.role} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
