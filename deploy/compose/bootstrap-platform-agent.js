@@ -14,10 +14,19 @@
 //   node bootstrap-platform-agent.js <agentId> <agentName>
 //
 // Run once per pilot agent identity, after the tna-platform container is healthy and before any
-// governed action is submitted for that agent. Idempotent per agent id: Gate rejects a duplicate
-// registration (HttpError 409 "Agent already registered") — this script surfaces that clearly rather
-// than silently continuing.
-import { Gate } from '/app/dist/apps/tna-gate-api/src/gate.js';
+// governed action is submitted for that agent.
+//
+// PILOT BOOTSTRAP HARDENING: registration is idempotent for exactly one expected condition — Gate's own
+// real HttpError(409, "Agent already registered") — detected by type and status, never by loosely
+// matching an arbitrary caught error's message. Any OTHER registration failure (a store error, a schema
+// violation, anything) is rethrown, the process exits non-zero, and `setEnvelope` is never reached — a
+// genuine failure never results in a partially-bootstrapped, silently-continued agent identity. This
+// mirrors `scripts/pilot-bootstrap-platform-agent.ts`'s `registerPilotAgent()`, the canonical,
+// typechecked, unit-tested source of this same logic (see `tests/deployment/pilot-bootstrap-platform-
+// agent.test.ts`) — kept structurally identical here only because Platform's accepted, frozen
+// `deploy/docker/Dockerfile` cannot be changed to carry a new `dist/scripts` file into the container, so
+// this self-contained copy is what is actually piped in via stdin (see the runbook).
+import { Gate, HttpError } from '/app/dist/apps/tna-gate-api/src/gate.js';
 import { Store } from '/app/dist/packages/evidence-core/src/index.js';
 
 const agentId = process.argv[2];
@@ -53,12 +62,21 @@ function pilotEnvelope() {
   };
 }
 
+let outcome;
 try {
   gate.register(ADMIN, { id: agentId, name: agentName });
-  console.log('registered agent', agentId);
-} catch (e) {
-  console.log('register skipped:', e.message);
+  outcome = 'registered';
+} catch (error) {
+  if (error instanceof HttpError && error.status === 409 && error.message === 'Agent already registered') {
+    outcome = 'already-registered';
+  } else {
+    // Fail closed: NOT the expected duplicate-registration condition — rethrow so the process exits
+    // non-zero and `setEnvelope` below is never reached.
+    store.close();
+    throw error;
+  }
 }
+console.log(outcome === 'registered' ? `registered agent ${agentId}` : `agent ${agentId} already exists — reconciling its envelope`);
 gate.setEnvelope(ADMIN, pilotEnvelope());
 console.log('envelope set for agent', agentId);
 store.close();
