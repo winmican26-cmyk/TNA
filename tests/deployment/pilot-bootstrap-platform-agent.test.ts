@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Gate, HttpError } from '../../apps/tna-gate-api/src/gate.js';
 import { Store } from '../../packages/evidence-core/src/index.js';
 import { registerPilotAgent } from '../../scripts/pilot-bootstrap-platform-agent.js';
+
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
 /**
  * TNA Pilot Deployment v0.1 — pilot bootstrap hardening. Proves `registerPilotAgent()` (the logic
@@ -125,4 +129,47 @@ test('a real, unrelated conflict message on the same 409 status is still treated
     catch (error) { envelopeExists = !(error instanceof HttpError && error.status === 404); }
     assert.equal(envelopeExists, false, 'a same-status-but-different-message 409 must not be silently tolerated');
   } finally { cleanup(store, dir); }
+});
+
+test('CLI entry-point guard actually runs main() when invoked directly (Windows-path regression) — the six tests above only ever call registerPilotAgent() in-process and never exercise this guard at all', () => {
+  // This is the exact defect discovered during local pilot bootstrap: `import.meta.url ===
+  // \`file://${process.argv[1]}\`` silently never matches on Windows, where `process.argv[1]` is a raw
+  // Windows path (backslashes, a drive letter, e.g. `C:\Users\...\pilot-bootstrap-platform-agent.js`)
+  // while `import.meta.url` is already a canonical, percent-encoded `file:///C:/Users/...` URL — so the
+  // naive comparison is always false there, `main()` never runs, and the script exits 0 having silently
+  // done nothing. Spawning the REAL compiled CLI as a real child process is the only way to prove the fix
+  // (`pathToFileURL(process.argv[1]).href`) actually works on the real, currently-running platform,
+  // Windows included — a synthetic string-comparison unit test would only prove the intended algorithm,
+  // not that Node's actual `import.meta.url` encoding agrees with it on this OS.
+  const dir = mkdtempSync(resolve(tmpdir(), 'tna-pilot-bootstrap-cli-test-'));
+  const gateDbPath = resolve(dir, 'gate.sqlite');
+  const cliPath = resolve(repoRoot, 'dist', 'scripts', 'pilot-bootstrap-platform-agent.js');
+  try {
+    const stdout = execFileSync(process.execPath, [cliPath, 'cli-regression-agent', 'CLI Regression Agent'], {
+      cwd: repoRoot, encoding: 'utf8', env: { ...process.env, TNA_PILOT_GATE_DB_PATH: gateDbPath },
+    });
+    assert.match(stdout, /registered agent cli-regression-agent/, 'main() must actually have run and registered the agent — not silently exited 0 having done nothing');
+
+    // Real side-effect proof, independent of stdout: the agent is genuinely present in the Gate database
+    // the CLI process opened, readable by a fresh Gate instance over the same file.
+    const store = new Store(gateDbPath);
+    const gate = new Gate(store);
+    try {
+      const policy = gate.getEnvelope(ADMIN, 'cli-regression-agent') as { envelope: { agent: { id: string } } };
+      assert.equal(policy.envelope.agent.id, 'cli-regression-agent');
+    } finally { store.close(); }
+
+    // And the guard is genuinely conditional, not just "always run" — invoking the exact same compiled
+    // file as an IMPORTED module (via a wrapper, so `process.argv[1]` is the WRAPPER's path, not this
+    // module's own), must not run `main()` at all. If the guard were broken the other way (always true,
+    // e.g. a stray `true` left behind by a bad edit), `main()` would run with no CLI args and print its
+    // "usage: ..." message to stderr and exit non-zero — this asserts none of that happens, not merely
+    // that a couple of specific success strings are absent from stdout.
+    const wrapperPath = resolve(dir, 'import-wrapper.mjs');
+    writeFileSync(wrapperPath, `import ${JSON.stringify(pathToFileURL(cliPath).href)};\nconsole.log('wrapper ran, CLI module was only imported');\n`);
+    const wrapperResult = execFileSync(process.execPath, [wrapperPath], {
+      cwd: repoRoot, encoding: 'utf8', env: { ...process.env, TNA_PILOT_GATE_DB_PATH: gateDbPath }, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    assert.equal(wrapperResult.trim(), 'wrapper ran, CLI module was only imported', 'importing the module must produce exactly the wrapper\'s own output — no usage message, no registration, main() must not have run');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

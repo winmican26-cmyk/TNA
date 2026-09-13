@@ -10,6 +10,7 @@
  * treated every registration failure — a genuine store error, a schema violation, anything — as if it were
  * the one expected "this pilot agent already exists" case. That pattern is not used here or in the mirror.
  */
+import { pathToFileURL } from 'node:url';
 import { Gate, HttpError } from '../apps/tna-gate-api/src/gate.js';
 import type { Principal } from '../packages/agent-identity/src/index.js';
 
@@ -80,7 +81,12 @@ async function main(): Promise<void> {
   }
 }
 
-// Only run the CLI when this module is the direct entry point (not when imported for testing).
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Only run the CLI when this module is the direct entry point (not when imported for testing). Compared
+// as real file URLs (via `pathToFileURL`), not a naive `file://${...}` string concatenation — the latter
+// silently never matches on Windows, where `process.argv[1]` uses backslashes and drive letters while
+// `import.meta.url` is already a properly encoded `file:///C:/...` URL; this was caught by actually
+// running the compiled CLI locally, not just its unit tests (which import `registerPilotAgent` directly
+// and never exercise this guard at all).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(error => { console.error(error instanceof Error ? error.stack ?? error.message : error); process.exit(1); });
 }
