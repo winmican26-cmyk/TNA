@@ -12,3 +12,9 @@ e2e-fixtures.json
 apps/tna-control-center-web/dist/
 apps/tna-control-center-web/node_modules/
 apps/tna-control-center-web/.npm-cache/
+
+# Pilot/production deployment secrets and real per-tenant registries — never real values in version
+# control. Only the *.example.json templates and the secrets/ directory's own absence are committed.
+deploy/compose/secrets/
+deploy/compose/tenant-registry.pilot.json
+deploy/compose/*.pilot.env

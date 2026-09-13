@@ -1,0 +1,36 @@
+# TNA pilot deployment — the one public entrypoint. Mirrors `deploy/config/Caddyfile`'s accepted
+# conventions exactly (request-size bound, forwarded headers, explicit security headers, no CORS set here
+# since the Control Center enforces its own exact-match origin allowlist) — the only difference is the
+# proxy target: the Control Center BFF, never Platform/Client Gateway/Improvement Governor directly.
+#
+# Automatic HTTPS: Caddy requests a real certificate for {$TNA_PUBLIC_HOSTNAME} via ACME (Let's Encrypt)
+# the first time it starts, which requires the pilot host's port 80/443 to be genuinely reachable from the
+# public internet and DNS for that hostname to already point at this host. There is no HTTP-only fallback
+# path — see pilot-deployment-security-checklist-v0.1.md item B for what this means for purely local
+# testing (Caddy's `tls internal` self-signed mode is the local-only substitute, never used for the real
+# pilot hostname).
+
+{$TNA_PUBLIC_HOSTNAME} {
+	encode gzip
+
+	request_body {
+		max_size 2MB
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy tna-control-center:4719 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+			read_timeout 35s
+		}
+	}
+}

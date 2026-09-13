@@ -1,4 +1,4 @@
-import { Gate } from '../../../apps/tna-gate-api/src/gate.js';
+import { Gate, HttpError } from '../../../apps/tna-gate-api/src/gate.js';
 import type { Principal } from '../../../packages/agent-identity/src/index.js';
 
 /**
@@ -62,14 +62,71 @@ function governorEnvelope(agentId: string, options: { readonly approverRole: str
   };
 }
 
+/** Thrown when a persisted Gate identity under the governor's own agent id does not match the shape the
+ * trusted, code-derived bootstrap expects (see `registerImprovementGovernor`'s restart path below). This
+ * is a fail-closed signal, not a recoverable one: the caller (`main.ts`) lets it crash the process exactly
+ * as any other fatal startup failure does — an operator must investigate a genuinely conflicting identity
+ * rather than have it silently reconciled or overwritten. */
+export class GovernorIdentityConflictError extends Error {
+  constructor(agentId: string, reason: string) {
+    super(`Improvement governor identity "${agentId}" does not match the expected trusted bootstrap shape: ${reason}`);
+    this.name = 'GovernorIdentityConflictError';
+  }
+}
+
 /** Registers the trusted improvement-governor agent identity with a real Gate envelope. The envelope's
  * `tools.allow` covers every improvement operation, but `approvals.required_for` gates the
  * consequential/high-risk ones (`promote`, `rollback`, `start_canary`, `authority_expansion`) behind a
  * real distinct approver role — never the governor agent itself. `writableResourcePatterns` starts empty
  * for a freshly-registered governor; only an explicit, separate `expandGovernorWriteAccess` call (never a
- * side effect of anything the candidate does) can widen it. */
+ * side effect of anything the candidate does) can widen it.
+ *
+ * Restart-safe by construction (post-acceptance reliability remediation): `main.ts` calls this
+ * unconditionally on every process start, including a restart against an already-populated Gate store —
+ * the real, expected shape of a production container restart, not an edge case. `Gate.register()` has no
+ * idempotent "register if absent" form of its own (section 52's own design: registration is a real,
+ * one-time admin action with a real uniqueness guarantee), so this distinguishes the one specific,
+ * well-typed "already registered" conflict from every other possible failure — anything else (a store
+ * error, a schema violation, whatever) still propagates and crashes the process exactly as before this
+ * fix, preserving the original fail-closed startup discipline. On the "already registered" path, the
+ * persisted identity's shape is verified against the same trusted, code-derived values a fresh
+ * registration would have used (never anything caller/candidate-influenced) before the SAME deterministic
+ * envelope `governorEnvelope()` would install on any startup is (re-)established — restart therefore
+ * never creates a duplicate identity and never widens or weakens authority, because nothing about the
+ * envelope's shape depends on what happened during any previous run. */
 export function registerImprovementGovernor(gate: Gate, agentId: string, options: { readonly approverRole: string; readonly writableResourcePatterns?: readonly string[] }): void {
-  gate.register(ADMIN, { id: agentId, name: `Improvement Governor (${agentId})` });
+  const expectedName = `Improvement Governor (${agentId})`;
+  let restart = false;
+  try {
+    gate.register(ADMIN, { id: agentId, name: expectedName });
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 409 && error.message === 'Agent already registered') {
+      restart = true;
+    } else {
+      throw error;
+    }
+  }
+  if (restart) {
+    type PersistedPolicy = { envelope: { agent: { name: string; role: string; owner: string } } };
+    let existing: PersistedPolicy | null = null;
+    try {
+      existing = gate.getEnvelope(ADMIN, agentId) as PersistedPolicy;
+    } catch (error) {
+      // No envelope yet is expected and safe to proceed past (e.g. a prior start registered the agent but
+      // crashed before `setEnvelope` ran) — there is nothing yet to compare against, and the canonical
+      // envelope below is about to be established for the first time. Any other failure still propagates.
+      if (!(error instanceof HttpError && error.status === 404)) throw error;
+    }
+    if (existing) {
+      const persisted = existing.envelope.agent;
+      if (persisted.name !== expectedName || persisted.role !== 'improvement-governor' || persisted.owner !== 'tna-improvement-governor') {
+        throw new GovernorIdentityConflictError(agentId, `persisted agent (name="${persisted.name}", role="${persisted.role}", owner="${persisted.owner}") does not match the expected trusted governor identity — refusing to silently reconcile a genuinely conflicting agent record`);
+      }
+    }
+  }
+  // Reached only for a genuinely fresh registration, or a restart whose persisted identity passed the
+  // consistency check above — in both cases the SAME deterministic, code-derived envelope is
+  // (re-)established, never one influenced by anything persisted or caller-supplied.
   gate.setEnvelope(ADMIN, governorEnvelope(agentId, { approverRole: options.approverRole, writableResourcePatterns: options.writableResourcePatterns ?? [] }));
 }
 

@@ -16,5 +16,6 @@ docs
 .env.*
 !.env.example
 deploy
+!deploy/docker/entrypoints
 README.md
 AGENTS.md

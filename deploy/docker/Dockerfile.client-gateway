@@ -1,0 +1,49 @@
+# TNA Client Integration & MCP Gateway v0.1 (Volume 10), pilot-deployment closure. Mirrors
+# `deploy/docker/Dockerfile`'s accepted multi-stage conventions exactly (non-root user, deterministic
+# `npm ci`, no shell-form entrypoint) — no product code in `apps/tna-client-gateway` is modified.
+#
+# `apps/tna-client-gateway/src/config.ts` only reads `TNA_CLIENT_ADMIN_TOKEN` as a literal environment
+# value — it has no `_FILE` variant (a real, documented limitation; see
+# docs/deployment/pilot-deployment-security-checklist-v0.1.md). To still support a real Docker `secrets:`
+# file mount without touching that config-loading code, the ENTRYPOINT is a thin shell wrapper that reads
+# the mounted secret file into the exact environment variable the accepted, UNMODIFIED app already expects,
+# then execs the real `main.js` — from the application's own point of view this is indistinguishable from
+# the token being set directly (the same security model as today), it just never appears as a literal
+# value in this image, in compose YAML, or in the repository.
+#
+# Build from the repository root:
+#   docker build -f deploy/docker/Dockerfile.client-gateway -t tna-client-gateway:0.1.0 .
+# syntax=docker/dockerfile:1
+
+FROM node:24-slim AS builder
+WORKDIR /app
+COPY package.json package-lock.json tsconfig.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY scripts ./scripts
+COPY tests ./tests
+COPY academy ./academy
+COPY improvement ./improvement
+RUN npm ci && npm run build && npm prune --omit=dev
+
+FROM node:24-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+RUN mkdir -p /data && chown -R node:node /app /data
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist/apps/tna-client-gateway ./dist/apps/tna-client-gateway
+COPY --from=builder --chown=node:node /app/dist/apps/tna-gate-api ./dist/apps/tna-gate-api
+COPY --from=builder --chown=node:node /app/dist/apps/tna-platform ./dist/apps/tna-platform
+COPY --from=builder --chown=node:node /app/dist/apps/tna-ledger ./dist/apps/tna-ledger
+COPY --from=builder --chown=node:node /app/dist/packages ./dist/packages
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --chown=node:node deploy/docker/entrypoints/client-gateway.sh /usr/local/bin/tna-entrypoint.sh
+RUN chmod +x /usr/local/bin/tna-entrypoint.sh
+USER node
+ENV TNA_CLIENT_HOST=0.0.0.0
+ENV TNA_CLIENT_PORT=4318
+ENV TNA_CLIENT_DB_PATH=/data/client.sqlite
+ENV TNA_CLIENT_DATA_DIR=/data
+EXPOSE 4318
+ENTRYPOINT ["/usr/local/bin/tna-entrypoint.sh"]
+CMD ["node", "dist/apps/tna-client-gateway/src/main.js"]

@@ -1,0 +1,11 @@
+[
+  {
+    "tenant_id": "REPLACE_WITH_YOUR_PILOT_TENANT_ID",
+    "status": "ACTIVE",
+    "platform_base_url": "http://tna-platform:4618",
+    "platform_token": "REPLACE_WITH_REAL_PLATFORM_DEMO_AGENT_TOKEN_VALUE",
+    "platform_operator_token": "REPLACE_WITH_REAL_PLATFORM_OPERATOR_TOKEN_VALUE",
+    "improvement_base_url": "http://tna-improvement-governor:4718",
+    "improvement_admin_token": "REPLACE_WITH_REAL_IMPROVEMENT_ADMIN_TOKEN_VALUE"
+  }
+]

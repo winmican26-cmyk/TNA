@@ -1,0 +1,220 @@
+# TNA Pilot Deployment v0.1 — a controlled staging/pilot topology for external customer/funder
+# demonstration. Separate from, and does not modify, the accepted `compose.production.yaml` baseline.
+#
+# Topology: Internet -> Caddy (the ONLY publicly reachable service) -> Control Center BFF -> private
+# Docker network -> Platform / Client Gateway / Improvement Governor. Nothing else is port-published.
+#
+# HONEST, DOCUMENTED GAP (see docs/deployment/pilot-deployment-security-checklist-v0.1.md, "Deployment
+# blockers"): the standalone `apps/tna-ledger` and `apps/tna-auditor` HTTP servers hardcode
+# `server.listen(port, '127.0.0.1', ...)` in their own accepted `main.ts` — no environment variable
+# overrides this. A container built from either app's current, UNMODIFIED source would be reachable from
+# NOTHING outside its own network namespace, including every other container on this same Docker network.
+# They are therefore NOT wired into this pilot topology. The Control Center's Evidence Explorer and Audit
+# pages will correctly, honestly render "not configured" (a real 503, exactly the behavior
+# `tests/control-center/evidence-audit.test.ts` already proves) for the pilot tenant rather than silently
+# omitting or faking that surface. Fixing this requires a narrow, separately-reviewed change to those two
+# apps' own `main.ts` (binding to a configurable host) — out of scope for this deployment-closure pass,
+# and not invented here as a workaround.
+#
+# Prerequisites (see docs/deployment/pilot-deployment-runbook-v0.1.md for the full first-start sequence):
+#   1. deploy/compose/secrets/{operator_token,admin_token,service_token,capability_key,
+#      client_gateway_admin_token,improvement_admin_token,platform_demo_agent_token}.txt
+#      (never commit real values — see .gitignore)
+#   2. deploy/compose/tenant-registry.pilot.json (copy tenant-registry.pilot.example.json and fill in the
+#      SAME real token values used in the secrets files above — never commit this file either)
+#   3. TNA_PUBLIC_HOSTNAME set to a real DNS hostname that already resolves to this host
+#
+# Run from the repository root: docker compose -f deploy/compose/compose.pilot.yaml up -d --build
+name: tna-pilot
+services:
+  tna-platform:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    image: tna-platform:${TNA_IMAGE_TAG:-0.1.0}
+    environment:
+      TNA_ENV: production
+      # HONEST GAP (see the security checklist): `apps/tna-platform/src/connectors.ts`'s
+      # `buildDefaultConnectorRegistry()` wires exactly one tool connector, `DEMO_ECHO_CONNECTOR`, whose
+      # `tenant_id` is hardcoded to the literal 'tenant_demo' (packages/platform-connectors/src/index.ts).
+      # `ConnectorRegistry.list()` filters strictly on that literal — Platform has no multi-tenant
+      # connector-onboarding API. A Platform tenant id other than 'tenant_demo' registers zero tools, so
+      # every governed action's tool-execution phase would honestly 400 "Tool is unregistered or
+      # incompatible" (Gate authorization itself still runs for real). Platform's own tenant id is
+      # therefore deliberately decoupled from TNA_PILOT_TENANT_ID (the Client-Gateway-minted tenant used
+      # everywhere else) and defaults to the shipped 'tenant_demo' value so the pilot can demonstrate one
+      # real, tool-executing governed action out of the box. This is a config choice, not a code change —
+      # Platform and Client Gateway are already independent, non-unified stacks (see the storage map).
+      TNA_TENANT_ID: ${TNA_PILOT_PLATFORM_TENANT_ID:-tenant_demo}
+      TNA_HOST: 0.0.0.0
+      TNA_PORT: "4618"
+      TNA_TRUST_PROXY: "true"
+      TNA_DATA_DIR: /data
+      TNA_OPERATOR_TOKEN_FILE: /run/secrets/tna_operator_token
+      TNA_ADMIN_TOKEN_FILE: /run/secrets/tna_admin_token
+      TNA_SERVICE_TOKEN_FILE: /run/secrets/tna_service_token
+      TNA_CAPABILITY_KEY_FILE: /run/secrets/tna_capability_key
+      # v0.1 has no external customer IAM (see .env.example) — a single static agent credential remains
+      # the real, already-documented Volume 8 mechanism, unchanged for the pilot. HONEST GAP: unlike the
+      # operator/admin/service tokens, `apps/tna-platform/src/main.ts` reads
+      # `TNA_PLATFORM_DEMO_AGENT_TOKEN` as a literal value ONLY — it has no `_FILE` variant, and
+      # `deploy/docker/Dockerfile` (the accepted, frozen Platform image) has no secret-file-to-env-var
+      # entrypoint wrapper the way the three NEW images built for this pilot do, because adding one would
+      # mean modifying accepted Volume 9 packaging rather than only this pilot's own new deployment files.
+      # This one value is therefore supplied as a real literal env var, sourced from an operator-created,
+      # gitignored `.env` file (`docker compose --env-file`) — never a Docker `secrets:` file mount, and
+      # never a value typed directly into this YAML.
+      TNA_PLATFORM_DEMO_AGENT_TOKEN: ${TNA_PILOT_PLATFORM_AGENT_TOKEN:?set TNA_PILOT_PLATFORM_AGENT_TOKEN (see the runbook — this one credential cannot use the Docker secrets file mechanism the others use)}
+      TNA_PLATFORM_DEMO_AGENT_ID: ${TNA_PILOT_AGENT_ID:-pilot-agent-1}
+    secrets:
+      - tna_operator_token
+      - tna_admin_token
+      - tna_service_token
+      - tna_capability_key
+    volumes:
+      - tna-pilot-platform-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    networks: [tna-pilot-internal]
+    # No `ports:` — Platform is reachable only from other containers on tna-pilot-internal.
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+    restart: on-failure:5
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4618/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  tna-client-gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.client-gateway
+    image: tna-client-gateway:${TNA_IMAGE_TAG:-0.1.0}
+    environment:
+      NODE_ENV: production
+      # CLIENT_GATEWAY_MODE intentionally unset -> defaults to 'governed', the only mode production
+      # accepts (config.ts refuses 'record-only' outright once NODE_ENV=production).
+      TNA_CLIENT_ADMIN_TOKEN_FILE: /run/secrets/tna_client_gateway_admin_token
+    secrets:
+      - tna_client_gateway_admin_token
+    volumes:
+      - tna-pilot-client-gateway-data:/data
+    networks: [tna-pilot-internal]
+    restart: on-failure:5
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4318/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  tna-improvement-governor:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.improvement-governor
+    image: tna-improvement-governor:${TNA_IMAGE_TAG:-0.1.0}
+    environment:
+      TNA_IMPROVEMENT_TENANT_ID: ${TNA_PILOT_TENANT_ID:?set TNA_PILOT_TENANT_ID to your pilot tenant id}
+      TNA_IMPROVEMENT_ADMIN_TOKEN_FILE: /run/secrets/tna_improvement_admin_token
+    secrets:
+      - tna_improvement_admin_token
+    volumes:
+      - tna-pilot-improvement-data:/data
+    networks: [tna-pilot-internal]
+    restart: on-failure:5
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4718/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  tna-control-center:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.control-center
+    image: tna-control-center:${TNA_IMAGE_TAG:-0.1.0}
+    depends_on:
+      tna-platform:
+        condition: service_healthy
+      tna-client-gateway:
+        condition: service_healthy
+      tna-improvement-governor:
+        condition: service_healthy
+    environment:
+      # First pilot runs in `staging`, never a silent `production` claim, until the operator has run
+      # through the full verification checklist and deliberately promotes it (see the runbook).
+      TNA_CONTROL_CENTER_ENVIRONMENT: ${TNA_CONTROL_CENTER_ENVIRONMENT:-staging}
+      TNA_CONTROL_CENTER_COOKIE_SECURE: "true"
+      TNA_CONTROL_CENTER_TRUSTED_ORIGINS: https://${TNA_PUBLIC_HOSTNAME:?set TNA_PUBLIC_HOSTNAME}
+      TNA_CONTROL_CENTER_TENANT_REGISTRY_PATH: /config/tenant-registry.json
+      TNA_CONTROL_CENTER_CLIENT_GATEWAY_URL: http://tna-client-gateway:4318
+      TNA_CONTROL_CENTER_CLIENT_GATEWAY_ADMIN_TOKEN_FILE: /run/secrets/tna_client_gateway_admin_token
+    secrets:
+      - tna_client_gateway_admin_token
+    volumes:
+      - tna-pilot-control-center-data:/data
+      - ./tenant-registry.pilot.json:/config/tenant-registry.json:ro
+    networks: [tna-pilot-internal]
+    restart: on-failure:5
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4719/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  reverse-proxy:
+    image: caddy:2-alpine
+    depends_on:
+      tna-control-center:
+        condition: service_healthy
+    environment:
+      TNA_PUBLIC_HOSTNAME: ${TNA_PUBLIC_HOSTNAME:?set TNA_PUBLIC_HOSTNAME to your public pilot hostname}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../config/Caddyfile.pilot:/etc/caddy/Caddyfile:ro
+      - caddy-pilot-data:/data
+      - caddy-pilot-config:/config
+    networks: [tna-pilot-internal]
+    restart: on-failure:5
+
+secrets:
+  tna_operator_token:
+    file: ./secrets/operator_token.txt
+  tna_admin_token:
+    file: ./secrets/admin_token.txt
+  tna_service_token:
+    file: ./secrets/service_token.txt
+  tna_capability_key:
+    file: ./secrets/capability_key.txt
+  tna_client_gateway_admin_token:
+    file: ./secrets/client_gateway_admin_token.txt
+  tna_improvement_admin_token:
+    file: ./secrets/improvement_admin_token.txt
+
+networks:
+  tna-pilot-internal:
+    driver: bridge
+    internal: false # Caddy alone needs egress for ACME; every OTHER service never gets a published port,
+                     # which is what actually keeps them unreachable from the internet (see the security
+                     # checklist's "internal internet exposure" verification for how this is proven, not
+                     # merely asserted).
+
+volumes:
+  tna-pilot-platform-data:
+  tna-pilot-client-gateway-data:
+  tna-pilot-improvement-data:
+  tna-pilot-control-center-data:
+  caddy-pilot-data:
+  caddy-pilot-config:

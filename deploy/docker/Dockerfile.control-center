@@ -34,12 +34,20 @@ COPY --from=builder --chown=node:node /app/dist/apps/tna-control-center ./dist/a
 COPY --from=builder --chown=node:node /app/dist/scripts/control-center-create-user.js ./dist/scripts/control-center-create-user.js
 COPY --from=builder --chown=node:node /app/apps/tna-control-center-web/dist ./apps/tna-control-center-web/dist
 COPY --from=builder --chown=node:node /app/package.json ./package.json
+# Pilot-deployment closure: `TNA_CONTROL_CENTER_CLIENT_GATEWAY_ADMIN_TOKEN` has no `_FILE` variant in
+# `config.ts` (a documented, unmodified limitation — see
+# docs/deployment/pilot-deployment-security-checklist-v0.1.md). This thin wrapper optionally reads a real
+# Docker `secrets:`-mounted file into that exact env var, then `exec`s the real process — `exec` replaces
+# the shell rather than forking, so the real Node process still becomes PID 1 and SIGTERM still reaches it
+# directly, preserving the original no-wrapper discipline's actual goal. A deployment that sets the env var
+# directly (no secret file mounted) behaves exactly as before this file existed.
+COPY --chown=node:node deploy/docker/entrypoints/control-center.sh /usr/local/bin/tna-entrypoint.sh
+RUN chmod +x /usr/local/bin/tna-entrypoint.sh
 USER node
 ENV TNA_CONTROL_CENTER_HOST=0.0.0.0
 ENV TNA_CONTROL_CENTER_PORT=4719
 ENV TNA_CONTROL_CENTER_STATIC_ROOT=/app/apps/tna-control-center-web/dist
 ENV TNA_CONTROL_CENTER_DB_PATH=/data/control-center.sqlite
 EXPOSE 4719
-# No shell form, no package-manager entrypoint wrapper — a single direct exec so SIGTERM reaches main.js
-# as PID 1, matching the accepted Platform image's own discipline.
-ENTRYPOINT ["node", "dist/apps/tna-control-center/src/main.js"]
+ENTRYPOINT ["/usr/local/bin/tna-entrypoint.sh"]
+CMD ["node", "dist/apps/tna-control-center/src/main.js"]

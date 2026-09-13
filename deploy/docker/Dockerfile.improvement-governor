@@ -1,0 +1,41 @@
+# TNA Recursive Improvement Governance v0.1 (Volume 12), pilot-deployment closure. Same conventions as
+# `Dockerfile.client-gateway` — see that file's header for the secret-file-to-env-var entrypoint rationale
+# (`apps/tna-improvement-governor/src/config.ts` also has no `_FILE` variant for its admin token).
+#
+# Build from the repository root:
+#   docker build -f deploy/docker/Dockerfile.improvement-governor -t tna-improvement-governor:0.1.0 .
+# syntax=docker/dockerfile:1
+
+FROM node:24-slim AS builder
+WORKDIR /app
+COPY package.json package-lock.json tsconfig.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY scripts ./scripts
+COPY tests ./tests
+COPY academy ./academy
+COPY improvement ./improvement
+RUN npm ci && npm run build && npm prune --omit=dev
+
+FROM node:24-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+RUN mkdir -p /data && chown -R node:node /app /data
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist/apps/tna-improvement-governor ./dist/apps/tna-improvement-governor
+COPY --from=builder --chown=node:node /app/dist/apps/tna-gate-api ./dist/apps/tna-gate-api
+COPY --from=builder --chown=node:node /app/dist/apps/tna-ledger ./dist/apps/tna-ledger
+COPY --from=builder --chown=node:node /app/dist/packages ./dist/packages
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --chown=node:node deploy/docker/entrypoints/improvement-governor.sh /usr/local/bin/tna-entrypoint.sh
+RUN chmod +x /usr/local/bin/tna-entrypoint.sh
+USER node
+ENV TNA_IMPROVEMENT_HOST=0.0.0.0
+ENV TNA_IMPROVEMENT_PORT=4718
+ENV TNA_IMPROVEMENT_DB_PATH=/data/improvement.sqlite
+ENV TNA_IMPROVEMENT_GATE_DB_PATH=/data/improvement-gate.sqlite
+ENV TNA_IMPROVEMENT_LEDGER_DB_PATH=/data/improvement-ledger.sqlite
+ENV TNA_IMPROVEMENT_SENTINEL_DB_PATH=/data/improvement-sentinel.sqlite
+EXPOSE 4718
+ENTRYPOINT ["/usr/local/bin/tna-entrypoint.sh"]
+CMD ["node", "dist/apps/tna-improvement-governor/src/main.js"]
