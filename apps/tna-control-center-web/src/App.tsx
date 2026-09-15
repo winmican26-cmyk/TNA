@@ -18,6 +18,7 @@ import ImprovementDetail from './pages/ImprovementDetail.js';
 import Incidents from './pages/Incidents.js';
 import Identities from './pages/Identities.js';
 import Onboarding from './pages/Onboarding.js';
+import Help from './pages/Help.js';
 
 /**
  * TNA Client Control Center & Assurance UI v0.1 (Volume 13), section 62. Session state is never assumed:
@@ -97,6 +98,7 @@ export default function App() {
           <NavLink to="/incidents">Incidents</NavLink>
           <NavLink to="/identities">Identities</NavLink>
           <NavLink to="/onboarding">Onboarding</NavLink>
+          <NavLink to="/help">Help</NavLink>
           {state.user.permissions?.includes('user.invite') && <NavLink to="/team">Team</NavLink>}
           <NotificationBell permissions={state.user.permissions ?? []} />
           <div style={{ padding: '16px 20px 4px', fontSize: 12 }} className="muted">
@@ -118,6 +120,8 @@ export default function App() {
             <Route path="/incidents" element={<Incidents role={state.user.role} />} />
             <Route path="/identities" element={<Identities role={state.user.role} />} />
             <Route path="/onboarding" element={<Onboarding role={state.user.role} />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/help/:slug" element={<Help />} />
             <Route path="/team" element={<Team role={state.user.role} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
